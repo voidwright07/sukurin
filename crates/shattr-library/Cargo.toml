@@ -1,0 +1,17 @@
+[package]
+name = "shattr-library"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+shattr-core.workspace = true
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+notify = "8"
+dirs = "6"
+anyhow = "1"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+
+[dev-dependencies]
+tempfile = "3"
