@@ -63,8 +63,15 @@ jobs:
       - name: Build
         run: |
           for target in ${{ matrix.targets }}; do
-            cargo build --release --locked -p sukurin-app --target "$target"
+            cargo build --release --locked -p sukurin-app --target "$target" 2>&1 | tee -a build.log
           done
+
+      # Actions logs need a GitHub sign-in to read, but annotations are public.
+      - name: Surface compiler errors
+        if: failure()
+        run: |
+          msg=$(grep -E -A30 '^error' build.log | head -c 60000 | sed 's/%/%25/g' | awk '{ printf "%s%%0A", $0 }')
+          echo "::error title=cargo build failed::$msg"
 
       - name: Package
         env:
