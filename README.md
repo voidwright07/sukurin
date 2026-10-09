@@ -4,13 +4,43 @@ A screenshot tool for people who count pixels: capture, inspect, measure, annota
 
 ![The Sukurin editor with arrows, a step counter and a blurred region](docs/screenshots/editor.png)
 
-## Run it
+## Install
+
+macOS and Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/voidwright07/shattr/main/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/voidwright07/shattr/main/install.ps1 | iex
+```
+
+The installer downloads the latest release, stops a running Sukurin, replaces it, and starts the new one. Run the same command again to upgrade. Set `SUKURIN_VERSION=v0.1.0` first to install a specific release.
+
+| | Installs to | Also adds |
+| --- | --- | --- |
+| Windows | `%LOCALAPPDATA%\Programs\Sukurin\sukurin.exe` | Start Menu shortcut |
+| macOS | `~/Applications/Sukurin.app` (or `/Applications` if it is already there) | |
+| Linux x86_64 | `~/.local/bin/sukurin` | App menu entry and icon; prints any missing system libraries with the apt, dnf and pacman command to install them |
+
+To uninstall, quit Sukurin from the tray and delete those files. Settings live in `%APPDATA%\Sukurin` on Windows and the platform config directory elsewhere.
+
+Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed. A tag with a `-` (for example `v0.2.0-rc.1`) becomes a prerelease, which the installers skip.
+
+## Build from source
 
 ```bash
 cargo run --release -p sukurin-app
 ```
 
 The toolchain is pinned to Rust 1.98 in `rust-toolchain.toml` (gpui-kit 0.7.1 does not build on 1.92). Sukurin lives in the system tray; there is no main window. `sukurin --library` opens the Library on launch.
+
+The first launch opens a short setup: pick the capture shortcut (`PrtSc`, `Ctrl+Shift+S`, or your own), see which shortcuts are free, and choose whether Sukurin starts when you sign in. Closing it at any step counts as done. `sukurin --onboarding` or **Run setup again** in Settings brings it back.
+
+On Windows 11 22H2 and later, `PrtSc` opens Snipping Tool by default. Windows still lets Sukurin register the key, but the shell takes it first, so Sukurin reads the setting instead and leaves bare `PrtSc` unbound while it is on. Setup and Settings offer to switch it off: Sukurin writes `PrintScreenKeyForSnippingEnabled = 0` under `HKCU\Control Panel\Keyboard`, the same value as Windows Settings, Accessibility, Keyboard. Setup also notices when you change it in Windows Settings. If `PrtSc` still opens Snipping Tool afterwards, sign out of Windows and back in.
 
 | Action | Windows / Linux | macOS (planned) |
 | --- | --- | --- |
@@ -67,4 +97,4 @@ Measured on a 2560x1600 HDR display at 150% (RTX 4080 laptop), release build:
 
 - `RUST_LOG=info` (default) logs capture timings, thumbnail placement, saves, and pins.
 - `SUKURIN_DUMP_SCROLL=<dir>` writes every scrolling-capture frame to `<dir>` for stitching analysis.
-- `SUKURIN_AI_URL=<url>` changes where Send to AI opens (default `https://claude.ai/new`; any non-http value opens nothing).
+- `SUKURIN_AI_URL=<url>` overrides the chat Send to AI opens (chosen during setup: Claude, ChatGPT or Gemini; any non-http value opens nothing).

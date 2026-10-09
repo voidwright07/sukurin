@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x86_64
+            runner: windows-latest
+            targets: x86_64-pc-windows-msvc
+          - platform: macos-universal
+            runner: macos-14
+            targets: aarch64-apple-darwin x86_64-apple-darwin
+          - platform: linux-x86_64
+            runner: ubuntu-22.04
+            targets: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      # Windows runners default to autocrlf=true, which breaks scripts/package.sh under bash.
+      - run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v5
+
+      # Each package is probed by a -sys crate in the Linux dependency tree:
+      # gtk3 stack (tray-icon, muda), xcb + xkbcommon(-x11) (gpui, xcap), fontconfig (font-kit),
+      # EGL + gbm (libwayshot), pipewire + spa via bindgen/libclang (xcap).
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libclang-dev \
+            libgtk-3-dev \
+            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libfontconfig-dev \
+            libegl-dev libgbm-dev \
+            libpipewire-0.3-dev libspa-0.2-dev
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install --profile minimal
+          rustup target add ${{ matrix.targets }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.platform }}
+
+      - name: Build
+        run: |
+          for target in ${{ matrix.targets }}; do
+            cargo build --release --locked -p sukurin-app --target "$target"
+          done
+
+      - name: Package
+        env:
+          VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+        run: scripts/package.sh ${{ matrix.platform }} "$VERSION"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          flags=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes "${flags[@]}"
