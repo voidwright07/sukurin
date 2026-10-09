@@ -1,6 +1,6 @@
 #!/bin/sh
 # Installs or upgrades Sukurin on macOS and Linux x86_64.
-#   curl -fsSL https://raw.githubusercontent.com/voidwright07/shattr/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/voidwright07/sukurin/main/install.sh | sh
 # SUKURIN_VERSION=v0.2.0 pins a release; SUKURIN_DOWNLOAD_BASE points at a mirror of the releases URL.
 set -eu
 
@@ -10,7 +10,7 @@ die() {
 	exit 1
 }
 
-base=${SUKURIN_DOWNLOAD_BASE:-https://github.com/voidwright07/shattr/releases}
+base=${SUKURIN_DOWNLOAD_BASE:-https://github.com/voidwright07/sukurin/releases}
 if [ -n "${SUKURIN_VERSION:-}" ]; then
 	download=$base/download/$SUKURIN_VERSION
 else
@@ -35,7 +35,7 @@ Linux)
 	esac
 	;;
 MINGW* | MSYS* | CYGWIN*)
-	die "this installer is for macOS and Linux. On Windows run: powershell -c \"irm https://raw.githubusercontent.com/voidwright07/shattr/main/install.ps1 | iex\""
+	die "this installer is for macOS and Linux. On Windows run: powershell -c \"irm https://raw.githubusercontent.com/voidwright07/sukurin/main/install.ps1 | iex\""
 	;;
 *) die "$os is not supported; releases are built for macOS, Linux x86_64 and Windows." ;;
 esac

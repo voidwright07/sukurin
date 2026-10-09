@@ -1,5 +1,5 @@
 # Installs or upgrades Sukurin on Windows.
-#   powershell -c "irm https://raw.githubusercontent.com/voidwright07/shattr/main/install.ps1 | iex"
+#   powershell -c "irm https://raw.githubusercontent.com/voidwright07/sukurin/main/install.ps1 | iex"
 # SUKURIN_VERSION=v0.2.0 pins a release; SUKURIN_DOWNLOAD_BASE points at a mirror of the releases URL.
 
 # The script block keeps preferences and variables out of the caller's session when piped to iex.
@@ -13,7 +13,7 @@
     $tmp = $null
     try {
         if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
-            throw 'this installer is for Windows. On macOS or Linux run: curl -fsSL https://raw.githubusercontent.com/voidwright07/shattr/main/install.sh | sh'
+            throw 'this installer is for Windows. On macOS or Linux run: curl -fsSL https://raw.githubusercontent.com/voidwright07/sukurin/main/install.sh | sh'
         }
         $arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
         # Windows 11 on ARM runs the x86_64 build under emulation.
@@ -21,7 +21,7 @@
             throw "Windows on $arch is not supported; releases are built for x86_64 only."
         }
 
-        $base = if ($env:SUKURIN_DOWNLOAD_BASE) { $env:SUKURIN_DOWNLOAD_BASE } else { 'https://github.com/voidwright07/shattr/releases' }
+        $base = if ($env:SUKURIN_DOWNLOAD_BASE) { $env:SUKURIN_DOWNLOAD_BASE } else { 'https://github.com/voidwright07/sukurin/releases' }
         $download = if ($env:SUKURIN_VERSION) { "$base/download/$($env:SUKURIN_VERSION)" } else { "$base/latest/download" }
         $asset = 'sukurin-windows-x86_64.zip'
         $url = "$download/$asset"

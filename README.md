@@ -9,13 +9,13 @@ A screenshot tool for people who count pixels: capture, inspect, measure, annota
 macOS and Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/voidwright07/shattr/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/voidwright07/sukurin/main/install.sh | sh
 ```
 
 Windows (PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/voidwright07/shattr/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/voidwright07/sukurin/main/install.ps1 | iex
 ```
 
 The installer downloads the latest release, stops a running Sukurin, replaces it, and starts the new one. Run the same command again to upgrade. Set `SUKURIN_VERSION=v0.1.0` first to install a specific release.
