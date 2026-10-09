@@ -22,7 +22,8 @@ jobs:
             runner: macos-14
             targets: aarch64-apple-darwin x86_64-apple-darwin
           - platform: linux-x86_64
-            runner: ubuntu-22.04
+            # 22.04 ships PipeWire 0.3.48, too old for libspa 0.10. Building here sets the glibc floor install.sh checks.
+            runner: ubuntu-24.04
             targets: x86_64-unknown-linux-gnu
     runs-on: ${{ matrix.runner }}
     defaults:

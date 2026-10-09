@@ -24,7 +24,7 @@ The installer downloads the latest release, stops a running Sukurin, replaces it
 | --- | --- | --- |
 | Windows | `%LOCALAPPDATA%\Programs\Sukurin\sukurin.exe` | Start Menu shortcut |
 | macOS | `~/Applications/Sukurin.app` (or `/Applications` if it is already there) | |
-| Linux x86_64 | `~/.local/bin/sukurin` | App menu entry and icon; prints any missing system libraries with the apt, dnf and pacman command to install them |
+| Linux x86_64 (glibc 2.39+: Ubuntu 24.04, Fedora 40, Debian 13 or newer) | `~/.local/bin/sukurin` | App menu entry and icon; prints any missing system libraries with the apt, dnf and pacman command to install them |
 
 To uninstall, quit Sukurin from the tray and delete those files. Settings live in `%APPDATA%\Sukurin` on Windows and the platform config directory elsewhere.
 

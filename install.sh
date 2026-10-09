@@ -26,6 +26,13 @@ Linux)
 	x86_64 | amd64) asset=sukurin-linux-x86_64.tar.gz ;;
 	*) die "Linux on $arch is not supported yet; releases are built for x86_64 only." ;;
 	esac
+	# The release is built on Ubuntu 24.04, so it needs that glibc or newer.
+	glibc=$(ldd --version 2>/dev/null | awk 'NR == 1 { print $NF }')
+	case $glibc in
+	2.[0-9] | 2.[0-9].* | 2.[12][0-9] | 2.[12][0-9].* | 2.3[0-8] | 2.3[0-8].*)
+		die "Sukurin needs glibc 2.39 or newer (Ubuntu 24.04, Fedora 40, Debian 13 or later); this system has $glibc."
+		;;
+	esac
 	;;
 MINGW* | MSYS* | CYGWIN*)
 	die "this installer is for macOS and Linux. On Windows run: powershell -c \"irm https://raw.githubusercontent.com/voidwright07/shattr/main/install.ps1 | iex\""
