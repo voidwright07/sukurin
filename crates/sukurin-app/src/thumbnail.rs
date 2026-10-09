@@ -1,11 +1,11 @@
 //! The post-capture corner card. It never takes focus, so whatever the user
 //! was typing into keeps the keyboard.
 
-use shattr_ui::icons::{Icon, icon};
-use shattr_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
-use shattr_ui::widgets::{icon_button, render_image};
+use sukurin_ui::icons::{Icon, icon};
+use sukurin_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
+use sukurin_ui::widgets::{icon_button, render_image};
 use gpui_kit::*;
-use shattr_core::Shot;
+use sukurin_core::Shot;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};

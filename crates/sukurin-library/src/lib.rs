@@ -23,7 +23,7 @@ use anyhow::{Context, Result};
 use crossbeam_channel::{Receiver, Sender};
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::{Mutex, RwLock};
-use shattr_core::Bitmap;
+use sukurin_core::Bitmap;
 
 use hash::Fingerprint;
 use index::{Index, Item};
@@ -147,14 +147,14 @@ impl Library {
         *self.shared.phase.lock() = Phase::Walking;
         let scan = Arc::downgrade(&self.shared);
         let index = Arc::downgrade(&self.shared);
-        spawn("shattr-library-scan", move || {
+        spawn("sukurin-library-scan", move || {
             if let Some(shared) = scan.upgrade() {
                 shared.watch();
                 shared.initial_scan();
             }
             work(scan, first);
         });
-        spawn("shattr-library-index", move || work(index, second));
+        spawn("sukurin-library-index", move || work(index, second));
     }
 
     /// Indexed screenshots that look like `b`, closest first, at most

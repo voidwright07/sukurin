@@ -4,8 +4,8 @@
 
 use crate::viewport::Viewport;
 use gpui_kit::*;
-use shattr_annotate::{Prim, RectF, Scene};
-use shattr_core::Bitmap;
+use sukurin_annotate::{Prim, RectF, Scene};
+use sukurin_core::Bitmap;
 use std::sync::Arc;
 
 pub enum PaintPrim {
@@ -13,7 +13,7 @@ pub enum PaintPrim {
     Image { dest: RectF, image: Arc<RenderImage> },
 }
 
-fn hsla(c: shattr_core::Rgba) -> Hsla {
+fn hsla(c: sukurin_core::Rgba) -> Hsla {
     gpui_kit::Rgba { r: c.r as f32 / 255., g: c.g as f32 / 255., b: c.b as f32 / 255., a: c.a as f32 / 255. }.into()
 }
 
@@ -67,7 +67,7 @@ impl ImageCache {
         if variant.opacity_milli < 1000 {
             b = with_opacity(&b, opacity);
         }
-        let image = shattr_ui::render_image(&b);
+        let image = sukurin_ui::render_image(&b);
         self.entries.push(Entry { bitmap: bitmap.clone(), variant, image: image.clone(), live: true });
         image
     }
@@ -171,7 +171,7 @@ fn with_opacity(b: &Bitmap, opacity: f32) -> Bitmap {
 #[cfg(test)]
 mod tests {
     use super::nearest;
-    use shattr_core::Bitmap;
+    use sukurin_core::Bitmap;
 
     #[test]
     fn nearest_upscale_repeats_source_pixels_in_blocks() {

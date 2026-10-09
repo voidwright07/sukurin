@@ -15,6 +15,41 @@ pub struct Settings {
     /// The first-run setup was finished or dismissed.
     #[serde(default)]
     pub onboarded: bool,
+    /// Every capture is also written to `Pictures\Sukurin`, not only copied.
+    #[serde(default)]
+    pub auto_save: bool,
+    /// The chat Send to AI opens.
+    #[serde(default)]
+    pub ai_chat: AiChat,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AiChat {
+    #[default]
+    Claude,
+    ChatGpt,
+    Gemini,
+}
+
+impl AiChat {
+    pub const ALL: [AiChat; 3] = [AiChat::Claude, AiChat::ChatGpt, AiChat::Gemini];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            AiChat::Claude => "Claude",
+            AiChat::ChatGpt => "ChatGPT",
+            AiChat::Gemini => "Gemini",
+        }
+    }
+
+    /// A new, empty chat, ready for the pasted capture.
+    pub fn url(self) -> &'static str {
+        match self {
+            AiChat::Claude => "https://claude.ai/new",
+            AiChat::ChatGpt => "https://chatgpt.com/",
+            AiChat::Gemini => "https://gemini.google.com/app",
+        }
+    }
 }
 
 impl Settings {
@@ -25,10 +60,10 @@ impl Settings {
     }
 
     pub fn path() -> Option<PathBuf> {
-        Some(dirs::config_dir()?.join("Shattr").join("settings.json"))
+        Some(dirs::config_dir()?.join("Sukurin").join("settings.json"))
     }
 
-    /// Missing or unreadable settings fall back to defaults; Shattr must
+    /// Missing or unreadable settings fall back to defaults; Sukurin must
     /// start even if the file was hand-edited into nonsense.
     pub fn load() -> Self {
         let Some(path) = Self::path() else { return Self::default() };
@@ -139,6 +174,16 @@ mod tests {
         let done = Settings { onboarded: true, ..Default::default() };
         let back: Settings = serde_json::from_str(&serde_json::to_string(&done).unwrap()).unwrap();
         assert!(back.onboarded);
+    }
+
+    #[test]
+    fn setup_choices_default_for_older_files_and_round_trip() {
+        let s: Settings = serde_json::from_str(r#"{"onboarded":true}"#).unwrap();
+        assert!(!s.auto_save);
+        assert_eq!(s.ai_chat, AiChat::Claude);
+        let chosen = Settings { auto_save: true, ai_chat: AiChat::Gemini, ..Default::default() };
+        let back: Settings = serde_json::from_str(&serde_json::to_string(&chosen).unwrap()).unwrap();
+        assert_eq!(back, chosen);
     }
 
     #[test]

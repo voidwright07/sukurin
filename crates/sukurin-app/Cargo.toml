@@ -1,17 +1,17 @@
 [package]
-name = "shattr-app"
+name = "sukurin-app"
 edition.workspace = true
 version.workspace = true
 
 [[bin]]
-name = "shattr"
+name = "sukurin"
 path = "src/main.rs"
 
 [dependencies]
-shattr-core.workspace = true
-shattr-library.workspace = true
-shattr-ui.workspace = true
-shattr-editor.workspace = true
+sukurin-core.workspace = true
+sukurin-library.workspace = true
+sukurin-ui.workspace = true
+sukurin-editor.workspace = true
 gpui-kit = "=0.7.1"
 xcap = "0.9.8"
 global-hotkey = "0.8"
@@ -28,6 +28,9 @@ chrono = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rqrr = "0.11"
+
+[build-dependencies]
+winresource = "0.1"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [

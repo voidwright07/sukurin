@@ -3,9 +3,9 @@
 
 use gpui_kit::*;
 use gpui_kit::prelude::FluentBuilder as _;
-use shattr_ui::icons::{Icon, icon};
-use shattr_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
-use shattr_ui::widgets::{icon_button, kbd};
+use sukurin_ui::icons::{Icon, icon};
+use sukurin_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
+use sukurin_ui::widgets::{icon_button, kbd};
 use std::time::{Duration, Instant};
 
 pub const WIDTH: f32 = 380.;

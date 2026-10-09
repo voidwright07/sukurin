@@ -2,7 +2,7 @@
 //! striped table whose cells hold glyph-textured "words".
 
 use image::{DynamicImage, ImageBuffer, RgbaImage, imageops::FilterType};
-use shattr_core::Bitmap;
+use sukurin_core::Bitmap;
 
 #[derive(Clone)]
 pub struct Rng(u64);

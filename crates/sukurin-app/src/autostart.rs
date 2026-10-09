@@ -11,7 +11,7 @@ mod imp {
     use windows::core::{HSTRING, w};
 
     const RUN: windows::core::PCWSTR = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
-    const NAME: windows::core::PCWSTR = w!("Shattr");
+    const NAME: windows::core::PCWSTR = w!("Sukurin");
 
     pub fn is_enabled() -> bool {
         let mut size = 0u32;

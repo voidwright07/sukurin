@@ -2,7 +2,7 @@
 //! is to open a menu or hover state first, and stealing focus would close it.
 
 use gpui_kit::*;
-use shattr_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
+use sukurin_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
 
 pub const SIZE: f32 = 104.;
 

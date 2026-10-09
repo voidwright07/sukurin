@@ -8,15 +8,16 @@ use crate::pin::Pin;
 use crate::library_window::{LibraryAction, LibraryWindow};
 use crate::recognize;
 use crate::scroll::{self, HudAction, ScrollHud};
+use crate::settings::Settings;
 use crate::share;
 use crate::thumbnail::{self, Status, ThumbAction, Thumbnail};
 use crate::toast::{self, Content, Toast, ToastAction};
 use anyhow::{Context as _, Result};
 use gpui_kit::*;
-use shattr_core::stitch::{Push, Stitcher};
-use shattr_editor::EditorHost;
-use shattr_library::Library;
-use shattr_core::{Bitmap, Display, Frame, RectPx, Shot};
+use sukurin_core::stitch::{Push, Stitcher};
+use sukurin_editor::EditorHost;
+use sukurin_library::Library;
+use sukurin_core::{Bitmap, Display, Frame, RectPx, Shot};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -26,6 +27,7 @@ pub enum Command {
     OpenLibrary,
     OpenFolder,
     OpenSettings,
+    OpenOnboarding,
     ToggleAutostart,
     Quit,
 }
@@ -53,7 +55,7 @@ impl Card {
     }
 }
 
-pub struct Shattr {
+pub struct Sukurin {
     capturer: Capturer,
     last_area: Option<RectPx>,
     overlay: Option<(AnyWindowHandle, Entity<Overlay>)>,
@@ -62,6 +64,7 @@ pub struct Shattr {
     library: Option<Library>,
     library_window: Option<(AnyWindowHandle, Entity<LibraryWindow>)>,
     settings_window: Option<AnyWindowHandle>,
+    onboarding_window: Option<AnyWindowHandle>,
 }
 
 /// A scrolling capture in progress.
@@ -76,20 +79,20 @@ struct Scrolling {
     taken_at: std::time::SystemTime,
 }
 
-impl Global for Shattr {}
+impl Global for Sukurin {}
 
 pub fn install(cx: &mut App) -> Result<()> {
     let capturer = Capturer::new().context("starting screen capture")?;
-    cx.set_global(Shattr { capturer, last_area: None, overlay: None, corner: None, scrolling: None, library: open_library(), library_window: None, settings_window: None });
+    cx.set_global(Sukurin { capturer, last_area: None, overlay: None, corner: None, scrolling: None, library: open_library(), library_window: None, settings_window: None, onboarding_window: None });
     Ok(())
 }
 
-/// The index of screenshots already on disk. Shattr keeps working without
+/// The index of screenshots already on disk. Sukurin keeps working without
 /// it, so a broken database only costs the duplicate hints and the library.
 fn open_library() -> Option<Library> {
-    let dir = dirs::data_local_dir()?.join("Shattr");
+    let dir = dirs::data_local_dir()?.join("Sukurin");
     let _ = std::fs::create_dir_all(save_dir());
-    let opened = Library::open(&dir.join("library.sqlite"), &dir.join("thumbs"), shattr_library::default_roots());
+    let opened = Library::open(&dir.join("library.sqlite"), &dir.join("thumbs"), sukurin_library::default_roots());
     match opened {
         Ok(lib) => {
             lib.start();
@@ -103,31 +106,41 @@ fn open_library() -> Option<Library> {
 }
 
 pub fn library(cx: &App) -> Option<Library> {
-    cx.global::<Shattr>().library.clone()
+    cx.global::<Sukurin>().library.clone()
 }
 
 /// Looks the capture up among existing screenshots and, if one matches,
 /// tells the thumbnail so the user can open it instead of keeping another.
-fn check_duplicate(thumb: &Entity<Thumbnail>, cx: &mut App) {
-    let Some(lib) = library(cx) else { return };
+/// Looks for an earlier copy of the capture, then saves it when `auto_save`
+/// is on. Saving waits for the lookup so the new file can't match itself.
+fn check_duplicate(thumb: &Entity<Thumbnail>, auto_save: bool, cx: &mut App) {
+    let Some(lib) = library(cx) else {
+        if auto_save {
+            on_thumb_action(thumb.clone(), ThumbAction::Save, cx);
+        }
+        return;
+    };
     let bitmap = thumb.read(cx).shot.bitmap.clone();
     let weak = thumb.downgrade();
     cx.spawn(async move |cx| {
         let t = Instant::now();
         let hits = cx.background_executor().spawn(async move { lib.similar(&bitmap, 1) }).await;
-        let Some(hit) = hits.into_iter().next() else { return };
-        log::info!("duplicate of {} (exact {}) found in {:.1} ms", hit.entry.path.display(), hit.exact, ms(t.elapsed()));
-        if let Some(thumb) = weak.upgrade() {
-            cx.update(|cx| {
-                thumb.update(cx, |t, cx| t.set_duplicate(Some(thumbnail::Duplicate { path: hit.entry.path, exact: hit.exact }), cx))
-            });
-        }
+        let Some(thumb) = weak.upgrade() else { return };
+        cx.update(|cx| {
+            if let Some(hit) = hits.into_iter().next() {
+                log::info!("duplicate of {} (exact {}) found in {:.1} ms", hit.entry.path.display(), hit.exact, ms(t.elapsed()));
+                thumb.update(cx, |t, cx| t.set_duplicate(Some(thumbnail::Duplicate { path: hit.entry.path, exact: hit.exact }), cx));
+            }
+            if auto_save {
+                on_thumb_action(thumb, ThumbAction::Save, cx);
+            }
+        });
     })
     .detach();
 }
 
 fn open_library_window(cx: &mut App) {
-    if let Some((handle, view)) = cx.global::<Shattr>().library_window.clone()
+    if let Some((handle, view)) = cx.global::<Sukurin>().library_window.clone()
         && handle
             .update(cx, |_, window, cx| {
                 window.activate_window();
@@ -143,7 +156,7 @@ fn open_library_window(cx: &mut App) {
     };
     let opts = WindowOptions {
         window_bounds: Some(WindowBounds::centered(size(px(1180.), px(780.)), cx)),
-        titlebar: Some(TitlebarOptions { title: Some("Shattr Library".into()), ..Default::default() }),
+        titlebar: Some(TitlebarOptions { title: Some("Sukurin Library".into()), ..Default::default() }),
         focus: true,
         show: true,
         window_min_size: Some(size(px(520.), px(360.))),
@@ -172,7 +185,7 @@ fn open_library_window(cx: &mut App) {
                 },
             })
             .detach();
-            cx.global_mut::<Shattr>().library_window = Some((handle, view));
+            cx.global_mut::<Sukurin>().library_window = Some((handle, view));
         }
         Err(e) => log::error!("could not open library: {e:#}"),
     }
@@ -194,6 +207,7 @@ pub fn run(cmd: Command, cx: &mut App) {
     match cmd {
         Command::OpenLibrary => open_library_window(cx),
         Command::OpenSettings => open_settings_window(cx),
+        Command::OpenOnboarding => open_onboarding_window(cx),
         Command::Capture(mode) => {
             if let Err(e) = begin_capture(mode, cx) {
                 log::error!("capture failed: {e:#}");
@@ -216,12 +230,12 @@ pub fn run(cmd: Command, cx: &mut App) {
 }
 
 fn begin_capture(mode: Mode, cx: &mut App) -> Result<()> {
-    if cx.global::<Shattr>().overlay.is_some() || cx.global::<Shattr>().scrolling.is_some() {
+    if cx.global::<Sukurin>().overlay.is_some() || cx.global::<Sukurin>().scrolling.is_some() {
         return Ok(());
     }
     let t = Instant::now();
     let cursor = capture::cursor_position();
-    let (frame, last_area) = cx.update_global(|s: &mut Shattr, _| -> Result<(Frame, Option<RectPx>)> {
+    let (frame, last_area) = cx.update_global(|s: &mut Sukurin, _| -> Result<(Frame, Option<RectPx>)> {
         let d = s.capturer.display_at(cursor).context("no display")?;
         Ok((s.capturer.grab(&d)?, s.last_area))
     })?;
@@ -247,12 +261,12 @@ fn begin_capture(mode: Mode, cx: &mut App) -> Result<()> {
         window.activate_window();
         window.on_next_frame(move |_, cx| {
             log::info!("hotkey to overlay: grab {:.1} ms, first frame {:.1} ms", ms(grabbed), ms(t.elapsed()));
-            cx.global_mut::<Shattr>().capturer.trim();
+            cx.global_mut::<Sukurin>().capturer.trim();
         });
         overlay
     })?;
     cx.subscribe(&overlay, |overlay, ev: &OverlayEvent, cx| on_overlay(overlay, ev, cx)).detach();
-    cx.global_mut::<Shattr>().overlay = Some((handle, overlay));
+    cx.global_mut::<Sukurin>().overlay = Some((handle, overlay));
     Ok(())
 }
 
@@ -281,7 +295,7 @@ fn gpui_display(d: &Display, cx: &App) -> (Bounds<Pixels>, Option<DisplayId>) {
 /// Removal is deferred: this runs from the overlay's own event, and the
 /// overlay still finishes its key or mouse handler afterwards.
 fn close_overlay(cx: &mut App) {
-    if let Some((handle, _)) = cx.global_mut::<Shattr>().overlay.take() {
+    if let Some((handle, _)) = cx.global_mut::<Sukurin>().overlay.take() {
         cx.defer(move |cx| {
             let _ = handle.update(cx, |_, window, _| window.remove_window());
         });
@@ -311,12 +325,12 @@ fn on_overlay(overlay: Entity<Overlay>, ev: &OverlayEvent, cx: &mut App) {
                 After::Recognize => recognize_shot(shot, frame.display, cx),
                 After::Scroll => start_scrolling(shot, frame.display, cx),
                 After::Thumbnail => {
-                    cx.global_mut::<Shattr>().last_area = Some(shot.source_rect);
+                    cx.global_mut::<Sukurin>().last_area = Some(shot.source_rect);
                     copy_to_clipboard(&shot);
                     show_thumbnail(shot, &frame.display, cx);
                 }
                 After::Edit => {
-                    cx.global_mut::<Shattr>().last_area = Some(shot.source_rect);
+                    cx.global_mut::<Sukurin>().last_area = Some(shot.source_rect);
                     copy_to_clipboard(&shot);
                     edit(shot, cx);
                 }
@@ -373,12 +387,12 @@ impl EditorHost for Host {
 
 fn edit(shot: Shot, cx: &mut App) {
     let display = cx
-        .global::<Shattr>()
+        .global::<Sukurin>()
         .capturer
-        .display_at(shattr_core::PointPx::new(shot.source_rect.x, shot.source_rect.y))
+        .display_at(sukurin_core::PointPx::new(shot.source_rect.x, shot.source_rect.y))
         .unwrap_or(Display { rect: shot.source_rect, scale: shot.scale, name: String::new() });
     let t = Instant::now();
-    match shattr_editor::open_editor(shot, std::rc::Rc::new(Host { display }), cx) {
+    match sukurin_editor::open_editor(shot, std::rc::Rc::new(Host { display }), cx) {
         Ok(_) => log::info!("editor opened in {:.1} ms", ms(t.elapsed())),
         Err(e) => log::error!("could not open editor: {e:#}"),
     }
@@ -463,7 +477,7 @@ fn open_card<V: Render>(
     build: impl FnOnce(&mut App) -> Entity<V>,
     wrap: impl FnOnce(Entity<V>) -> Card,
 ) -> Option<(Entity<V>, Point<Pixels>)> {
-    if let Some((handle, _)) = cx.global_mut::<Shattr>().corner.take() {
+    if let Some((handle, _)) = cx.global_mut::<Sukurin>().corner.take() {
         let _ = handle.update(cx, |_, window, _| window.remove_window());
     }
     let (fallback, display_id) = gpui_display(display, cx);
@@ -490,12 +504,12 @@ fn open_card<V: Render>(
         }
     };
     let card = wrap(entity.clone());
-    cx.global_mut::<Shattr>().corner = Some((handle, card.clone()));
+    cx.global_mut::<Sukurin>().corner = Some((handle, card.clone()));
     let id = card.id();
     cx.spawn(async move |cx| loop {
         cx.background_executor().timer(Duration::from_millis(250)).await;
         let still_here = cx.update(|cx| {
-            let current = cx.global::<Shattr>().corner.as_ref().filter(|(_, c)| c.id() == id).map(|(_, c)| c.clone());
+            let current = cx.global::<Sukurin>().corner.as_ref().filter(|(_, c)| c.id() == id).map(|(_, c)| c.clone());
             match current {
                 Some(c) if c.should_close(cx) => {
                     close_card(id, cx);
@@ -514,8 +528,8 @@ fn open_card<V: Render>(
 }
 
 fn close_card(id: EntityId, cx: &mut App) {
-    let current = cx.global::<Shattr>().corner.as_ref().is_some_and(|(_, c)| c.id() == id);
-    if current && let Some((handle, _)) = cx.global_mut::<Shattr>().corner.take() {
+    let current = cx.global::<Sukurin>().corner.as_ref().is_some_and(|(_, c)| c.id() == id);
+    if current && let Some((handle, _)) = cx.global_mut::<Sukurin>().corner.take() {
         cx.defer(move |cx| {
             let _ = handle.update(cx, |_, window, _| window.remove_window());
         });
@@ -537,7 +551,7 @@ fn show_thumbnail(shot: Shot, display: &Display, cx: &mut App) {
         ((origin.y.as_f32() + preview_h + 22.) * display.scale).round()
     );
     cx.subscribe(&thumb, |thumb, a: &ThumbAction, cx| on_thumb_action(thumb, a.clone(), cx)).detach();
-    check_duplicate(&thumb, cx);
+    check_duplicate(&thumb, Settings::load().auto_save, cx);
 }
 
 fn recognize_shot(shot: Shot, display: Display, cx: &mut App) {
@@ -626,7 +640,7 @@ fn start_scrolling(first: Shot, display: Display, cx: &mut App) {
         }
     };
     cx.subscribe(&hud, |_, a: &HudAction, cx| {
-        let Some(session) = cx.global_mut::<Shattr>().scrolling.as_mut() else { return };
+        let Some(session) = cx.global_mut::<Sukurin>().scrolling.as_mut() else { return };
         match a {
             HudAction::TogglePause => {
                 let hud = session.hud.clone();
@@ -647,7 +661,7 @@ fn start_scrolling(first: Shot, display: Display, cx: &mut App) {
         h.frames = stitcher.frames();
     });
     scroll::move_cursor(region.x + region.w as i32 / 2, region.y + region.h as i32 / 2);
-    cx.global_mut::<Shattr>().scrolling = Some(Scrolling {
+    cx.global_mut::<Sukurin>().scrolling = Some(Scrolling {
         hud_window,
         hud,
         region,
@@ -661,7 +675,7 @@ fn start_scrolling(first: Shot, display: Display, cx: &mut App) {
 
     cx.spawn(async move |cx| loop {
         let paused = cx.update(|cx| {
-            let s = cx.global::<Shattr>().scrolling.as_ref()?;
+            let s = cx.global::<Sukurin>().scrolling.as_ref()?;
             Some(s.hud.read(cx).paused)
         });
         match paused {
@@ -690,7 +704,7 @@ fn start_scrolling(first: Shot, display: Display, cx: &mut App) {
 
 /// `None` once the session has ended.
 fn grab_scroll_region(cx: &mut App) -> Option<Result<Bitmap>> {
-    cx.update_global(|s: &mut Shattr, _| {
+    cx.update_global(|s: &mut Sukurin, _| {
         let session = s.scrolling.as_ref()?;
         if session.end.is_some() {
             return None;
@@ -715,7 +729,7 @@ fn stitch_frame(grabbed: Option<Result<Bitmap>>, cx: &mut App) -> bool {
                 return false;
             }
         };
-        if let Ok(dir) = std::env::var("SHATTR_DUMP_SCROLL") {
+        if let Ok(dir) = std::env::var("SUKURIN_DUMP_SCROLL") {
             let n = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
             let _ = image::save_buffer(
                 format!("{dir}/frame-{n}.png"),
@@ -725,7 +739,7 @@ fn stitch_frame(grabbed: Option<Result<Bitmap>>, cx: &mut App) -> bool {
                 image::ExtendedColorType::Rgba8,
             );
         }
-        let session = cx.global_mut::<Shattr>().scrolling.as_mut().unwrap();
+        let session = cx.global_mut::<Sukurin>().scrolling.as_mut().unwrap();
         let pushed = session.stitcher.push(&bitmap);
         match pushed {
             Push::Unchanged => session.unchanged += 1,
@@ -749,14 +763,14 @@ fn stitch_frame(grabbed: Option<Result<Bitmap>>, cx: &mut App) -> bool {
         }
         return true;
     }
-    let end = cx.global::<Shattr>().scrolling.as_ref().and_then(|s| s.end);
+    let end = cx.global::<Sukurin>().scrolling.as_ref().and_then(|s| s.end);
     finish_scrolling(end, cx);
     false
 }
 
 fn finish_scrolling(end: Option<HudAction>, cx: &mut App) {
-    let Some(session) = cx.global_mut::<Shattr>().scrolling.take() else { return };
-    cx.global_mut::<Shattr>().capturer.trim();
+    let Some(session) = cx.global_mut::<Sukurin>().scrolling.take() else { return };
+    cx.global_mut::<Sukurin>().capturer.trim();
     let handle = session.hud_window;
     cx.defer(move |cx| {
         let _ = handle.update(cx, |_, window, _| window.remove_window());
@@ -837,7 +851,7 @@ fn on_thumb_action(thumb: Entity<Thumbnail>, a: ThumbAction, cx: &mut App) {
                     .await;
                 let status = match copied {
                     Ok(()) => {
-                        open_url(&share::ai_url());
+                        open_url(&share::ai_url(Settings::load().ai_chat));
                         Status::CopiedForAi
                     }
                     Err(e) => Status::Failed(format!("Copy for AI failed: {e:#}").into()),
@@ -901,7 +915,7 @@ fn open_pin(shot: Shot, cx: &mut App) {
 }
 
 pub fn save_dir() -> PathBuf {
-    dirs::picture_dir().unwrap_or_else(|| dirs::home_dir().unwrap_or_default()).join("Shattr")
+    dirs::picture_dir().unwrap_or_else(|| dirs::home_dir().unwrap_or_default()).join("Sukurin")
 }
 
 fn save_png(shot: &Shot) -> Result<PathBuf> {
@@ -914,10 +928,10 @@ fn save_bitmap(bitmap: &Bitmap, taken_at: std::time::SystemTime) -> Result<PathB
     let dir = save_dir();
     std::fs::create_dir_all(&dir)?;
     let stamp = chrono::DateTime::<chrono::Local>::from(taken_at).format("%Y-%m-%d at %H.%M.%S");
-    let mut path = dir.join(format!("Shattr {stamp}.png"));
+    let mut path = dir.join(format!("Sukurin {stamp}.png"));
     let mut n = 2;
     while path.exists() {
-        path = dir.join(format!("Shattr {stamp} ({n}).png"));
+        path = dir.join(format!("Sukurin {stamp} ({n}).png"));
         n += 1;
     }
     let file = std::io::BufWriter::new(std::fs::File::create(&path)?);
@@ -978,14 +992,14 @@ fn show_toast(content: Content, display: &Display, cx: &mut App) {
 }
 
 fn open_settings_window(cx: &mut App) {
-    if let Some(handle) = cx.global::<Shattr>().settings_window
+    if let Some(handle) = cx.global::<Sukurin>().settings_window
         && handle.update(cx, |_, window, _| window.activate_window()).is_ok()
     {
         return;
     }
     let opts = WindowOptions {
         window_bounds: Some(WindowBounds::centered(size(px(720.), px(470.)), cx)),
-        titlebar: Some(TitlebarOptions { title: Some("Shattr Settings".into()), ..Default::default() }),
+        titlebar: Some(TitlebarOptions { title: Some("Sukurin Settings".into()), ..Default::default() }),
         focus: true,
         show: true,
         ..Default::default()
@@ -997,7 +1011,32 @@ fn open_settings_window(cx: &mut App) {
         view
     });
     match opened {
-        Ok((handle, _)) => cx.global_mut::<Shattr>().settings_window = Some(handle),
+        Ok((handle, _)) => cx.global_mut::<Sukurin>().settings_window = Some(handle),
         Err(e) => log::error!("could not open settings: {e:#}"),
+    }
+}
+
+fn open_onboarding_window(cx: &mut App) {
+    if let Some(handle) = cx.global::<Sukurin>().onboarding_window
+        && handle.update(cx, |_, window, _| window.activate_window()).is_ok()
+    {
+        return;
+    }
+    let opts = WindowOptions {
+        window_bounds: Some(WindowBounds::centered(size(px(640.), px(500.)), cx)),
+        titlebar: Some(TitlebarOptions { title: Some("Welcome to Sukurin".into()), ..Default::default() }),
+        focus: true,
+        show: true,
+        ..Default::default()
+    };
+    let opened = open_window(opts, cx, |window, cx| {
+        let view = cx.new(crate::onboarding::Onboarding::new);
+        let focus = view.read(cx).focus_handle().clone();
+        window.focus(&focus, cx);
+        view
+    });
+    match opened {
+        Ok((handle, _)) => cx.global_mut::<Sukurin>().onboarding_window = Some(handle),
+        Err(e) => log::error!("could not open setup: {e:#}"),
     }
 }

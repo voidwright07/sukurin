@@ -7,14 +7,15 @@ edition = "2024"
 version = "0.1.0"
 
 [workspace.dependencies]
-shattr-core = { path = "crates/shattr-core" }
-shattr-library = { path = "crates/shattr-library" }
-shattr-ui = { path = "crates/shattr-ui" }
-shattr-annotate = { path = "crates/shattr-annotate" }
-shattr-editor = { path = "crates/shattr-editor" }
+sukurin-core = { path = "crates/sukurin-core" }
+sukurin-library = { path = "crates/sukurin-library" }
+sukurin-ui = { path = "crates/sukurin-ui" }
+sukurin-annotate = { path = "crates/sukurin-annotate" }
+sukurin-editor = { path = "crates/sukurin-editor" }
 
 [profile.release]
 debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 2
+debug = "line-tables-only"

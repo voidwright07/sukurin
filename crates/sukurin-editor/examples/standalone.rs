@@ -1,4 +1,4 @@
-//! `cargo run -p shattr-editor --example standalone -- <png> [scale] [warm]`
+//! `cargo run -p sukurin-editor --example standalone -- <png> [scale] [warm]`
 //!
 //! Opens the editor on a PNG with a host that logs every action and writes
 //! Copy and Save exports next to the build output. `warm` opens a second
@@ -6,8 +6,8 @@
 //! the resident app.
 
 use gpui_kit::*;
-use shattr_core::{Bitmap, RectPx, Shot};
-use shattr_editor::{EditorAssets, EditorHost, open_editor};
+use sukurin_core::{Bitmap, RectPx, Shot};
+use sukurin_editor::{EditorAssets, EditorHost, open_editor};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::SystemTime;

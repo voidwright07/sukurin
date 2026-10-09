@@ -1,5 +1,5 @@
-use shattr_annotate::*;
-use shattr_core::{Bitmap, Rgba};
+use sukurin_annotate::*;
+use sukurin_core::{Bitmap, Rgba};
 
 const WHITE: Rgba = Rgba::opaque(255, 255, 255);
 const RED: Rgba = Rgba::opaque(0xF0, 0x44, 0x3A);

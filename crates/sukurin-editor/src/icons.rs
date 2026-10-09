@@ -9,7 +9,6 @@ use std::sync::OnceLock;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum EIcon {
-    Logo,
     Undo,
     Redo,
     Copy,
@@ -61,7 +60,6 @@ pub enum EIcon {
 }
 
 const ICONS: &[(EIcon, &str, &str)] = &[
-    (EIcon::Logo, "logo", r#"<path d="M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5" transform="scale(.8)" stroke-width="2.2" stroke-linecap="square"/><path d="M5.2 10.8l5.6-5.6" stroke-width="1.45"/>"#),
     (EIcon::Undo, "undo", r#"<path d="M5.5 3.5L2.5 6.5l3 3M2.5 6.5H10a3.5 3.5 0 010 7H7"/>"#),
     (EIcon::Redo, "redo", r#"<path d="M10.5 3.5l3 3-3 3M13.5 6.5H6a3.5 3.5 0 000 7h3"/>"#),
     (EIcon::Copy, "copy", r#"<rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 00-1-1h-6a1 1 0 00-1 1v6a1 1 0 001 1h2"/>"#),
@@ -142,22 +140,22 @@ fn documents() -> &'static HashMap<String, Vec<u8>> {
     })
 }
 
-/// Serves the editor's icons and falls back to the rest of Shattr's assets.
-/// The app registers this instead of `shattr_ui::icons::Assets`.
+/// Serves the editor's icons and falls back to the rest of Sukurin's assets.
+/// The app registers this instead of `sukurin_ui::icons::Assets`.
 pub struct EditorAssets;
 
 impl AssetSource for EditorAssets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
         match documents().get(path) {
             Some(doc) => Ok(Some(Cow::Borrowed(doc.as_slice()))),
-            None => shattr_ui::icons::Assets.load(path),
+            None => sukurin_ui::icons::Assets.load(path),
         }
     }
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
         let mut all: Vec<SharedString> =
             documents().keys().filter(|k| k.starts_with(path)).map(|k| SharedString::from(k.clone())).collect();
-        all.extend(shattr_ui::icons::Assets.list(path)?);
+        all.extend(sukurin_ui::icons::Assets.list(path)?);
         Ok(all)
     }
 }

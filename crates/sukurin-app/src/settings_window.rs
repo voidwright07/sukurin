@@ -1,12 +1,14 @@
 //! Settings: rebinding the global shortcuts. Click a shortcut, press the new
 //! keys; changes apply immediately and are saved.
 
+use crate::app::{self, Command};
 use crate::settings::Settings;
-use crate::shortcuts::{self, ACTIONS, SLOTS};
-use crate::tray::Resident;
+use crate::shortcuts::{self, ACTIONS, RecordKey, SLOTS};
+use crate::system_keys;
+use crate::tray::{Problem, Resident};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
-use shattr_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
+use sukurin_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
 use std::collections::HashMap;
 
 pub struct SettingsWindow {
@@ -14,9 +16,11 @@ pub struct SettingsWindow {
     /// The slot waiting for a key press.
     recording: Option<(&'static str, usize)>,
     /// Why a slot's shortcut isn't active, keyed by action and shortcut.
-    problems: HashMap<(&'static str, String), String>,
+    problems: HashMap<(&'static str, String), Problem>,
     /// A message for the row being edited (bad or duplicate shortcut).
     notice: Option<(&'static str, String)>,
+    /// Sukurin switched Snipping Tool off PrtSc from this window.
+    released: bool,
     focus: FocusHandle,
 }
 
@@ -27,6 +31,7 @@ impl SettingsWindow {
             recording: None,
             problems: HashMap::new(),
             notice: None,
+            released: false,
             focus: cx.focus_handle(),
         };
         cx.on_release(|this, cx| {
@@ -44,7 +49,7 @@ impl SettingsWindow {
     /// Registers the current settings with the OS and records what it refused.
     fn apply(&mut self, cx: &mut Context<Self>) {
         let refused = cx.update_global::<Resident, _>(|r, _| r.apply(&self.settings));
-        self.problems = refused.into_iter().map(|r| ((r.action, r.shortcut), r.reason)).collect();
+        self.problems = refused.into_iter().map(|r| ((r.action, r.shortcut), r.problem)).collect();
         cx.notify();
     }
 
@@ -56,9 +61,7 @@ impl SettingsWindow {
     }
 
     fn start_recording(&mut self, id: &'static str, slot: usize, window: &mut Window, cx: &mut Context<Self>) {
-        // Unregister everything while recording, or pressing an existing
-        // shortcut would trigger it instead of being recorded.
-        cx.update_global::<Resident, _>(|r, _| r.apply(&Settings { hotkeys: ACTIONS.iter().map(|a| (a.id.to_string(), vec![])).collect() }));
+        cx.update_global::<Resident, _>(|r, _| r.apply(&Settings::unbound()));
         self.recording = Some((id, slot));
         self.notice = None;
         window.focus(&self.focus, cx);
@@ -89,19 +92,29 @@ impl SettingsWindow {
         if self.recording.is_none() {
             return;
         }
-        let k = &ev.keystroke;
-        let m = k.modifiers;
-        let plain = !(m.control || m.alt || m.shift || m.platform);
-        match k.key.as_str() {
-            "escape" if plain => self.stop_recording(cx),
-            "backspace" | "delete" if plain => self.record(None, cx),
-            key => {
-                if let Some(text) = shortcuts::from_keystroke(key, m.control, m.alt, m.shift, m.platform) {
-                    self.record(Some(&text), cx);
-                }
-            }
+        let m = ev.keystroke.modifiers;
+        match shortcuts::record_key(&ev.keystroke.key, m.control, m.alt, m.shift, m.platform) {
+            RecordKey::Cancel => self.stop_recording(cx),
+            RecordKey::Clear => self.record(None, cx),
+            RecordKey::Record(text) => self.record(Some(&text), cx),
+            RecordKey::Ignore => {}
         }
         cx.stop_propagation();
+    }
+
+    fn release_prtsc(&mut self, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            // Broadcasting the setting change waits on every top-level window.
+            let released = cx.background_executor().spawn(async { system_keys::release_prtsc() }).await;
+            if let Err(e) = &released {
+                log::error!("could not release PrtSc: {e:#}");
+            }
+            let _ = this.update(cx, |this, cx| {
+                this.released |= released.is_ok();
+                this.apply(cx);
+            });
+        })
+        .detach();
     }
 
     fn chip(&self, id: &'static str, slot: usize, text: Option<String>, cx: &mut Context<Self>) -> impl IntoElement {
@@ -179,7 +192,7 @@ impl Render for SettingsWindow {
             );
             let problems: Vec<String> = current
                 .iter()
-                .filter_map(|t| self.problems.get(&(a.id, t.clone())).map(|r| format!("{t}: {r}")))
+                .filter_map(|t| self.problems.get(&(a.id, t.clone())).map(|p| format!("{t}: {}", p.message())))
                 .collect();
             let notice = self.notice.as_ref().filter(|(n, _)| *n == a.id).map(|(_, m)| m.clone());
             rows = rows.child(row).children(
@@ -222,22 +235,52 @@ impl Render for SettingsWindow {
                         .text_size(px(12.))
                         .text_color(T.text2)
                         .child("PrtSc can't be recorded from a window:")
-                        .child(
-                            div()
-                                .id("use-prtsc")
-                                .px(px(10.))
-                                .h(px(26.))
-                                .rounded(px(6.))
-                                .bg(T.control)
-                                .flex()
-                                .items_center()
-                                .hover(|d| d.bg(T.hover))
-                                .child("Use PrtSc")
-                                .on_click(cx.listener(|this, _, _, cx| this.record(Some("PrtSc"), cx))),
-                        ),
+                        .child(small_button("use-prtsc", "Use PrtSc").on_click(cx.listener(|this, _, _, cx| this.record(Some("PrtSc"), cx)))),
                 )
             })
+            .when(self.problems.values().any(|p| *p == Problem::Snipping), |d| {
+                d.child(
+                    div().flex().child(
+                        small_button("release-prtsc", "Let Sukurin use PrtSc").on_click(cx.listener(|this, _, _, cx| this.release_prtsc(cx))),
+                    ),
+                )
+            })
+            .when(self.released, |d| d.child(div().text_size(px(12.)).text_color(T.text2).child(system_keys::SIGN_OUT_HINT)))
             .child(div().flex_1())
-            .child(div().text_size(px(11.)).text_color(T.text3).font_family(MONO_FONT).child(path))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(12.))
+                    .child(div().flex_1().text_size(px(11.)).text_color(T.text3).font_family(MONO_FONT).child(path))
+                    .child(
+                        div()
+                            .id("run-setup")
+                            .text_size(px(12.))
+                            .text_color(T.text2)
+                            .hover(|d| d.text_color(T.text))
+                            .child("Run setup again")
+                            .on_click(|_, window, cx| {
+                                window.remove_window();
+                                cx.defer(|cx| app::run(Command::OpenOnboarding, cx));
+                            }),
+                    ),
+            )
     }
+}
+
+fn small_button(id: &'static str, label: &'static str) -> Stateful<Div> {
+    div()
+        .id(id)
+        .flex_none()
+        .px(px(10.))
+        .h(px(26.))
+        .rounded(px(6.))
+        .bg(T.control)
+        .flex()
+        .items_center()
+        .text_size(px(12.))
+        .text_color(T.text)
+        .hover(|d| d.bg(T.hover))
+        .child(label)
 }

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use shattr_core::{Bitmap, RectPx};
+use sukurin_core::{Bitmap, RectPx};
 
 use crate::{Document, Prim, Pt, RectF, RedactMode};
 

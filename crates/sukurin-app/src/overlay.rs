@@ -3,12 +3,12 @@
 //! physical pixels and converted to logical points only when drawn.
 
 use crate::capture::SnapWindow;
-use shattr_ui::icons::{Icon, icon};
-use shattr_ui::widgets::{kbd, pill};
-use shattr_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
+use sukurin_ui::icons::{Icon, icon};
+use sukurin_ui::widgets::{kbd, pill};
+use sukurin_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
 use gpui_kit::*;
 use gpui_kit::prelude::FluentBuilder as _;
-use shattr_core::{Frame, PointPx, RectPx};
+use sukurin_core::{Frame, PointPx, RectPx};
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -172,7 +172,7 @@ impl Overlay {
             .filter_map(|w| Some(SnapWindow { rect: to_frame(w.rect)?, title: w.title }))
             .collect();
         let last_area = last_area.and_then(to_frame);
-        let image = shattr_ui::render_image(&frame.bitmap);
+        let image = sukurin_ui::render_image(&frame.bitmap);
         let mut this = Self {
             frame,
             image,

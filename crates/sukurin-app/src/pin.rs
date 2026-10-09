@@ -1,12 +1,12 @@
 //! A capture pinned above every other window. Drag to move, scroll to
 //! resize, Alt+scroll or 1–0 for opacity, Esc or double-click to close.
 
-use shattr_ui::icons::Icon;
-use shattr_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
-use shattr_ui::widgets::{icon_button, render_image};
+use sukurin_ui::icons::Icon;
+use sukurin_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
+use sukurin_ui::widgets::{icon_button, render_image};
 use gpui_kit::*;
 use gpui_kit::prelude::FluentBuilder as _;
-use shattr_core::Shot;
+use sukurin_core::Shot;
 use std::sync::Arc;
 
 pub struct Pin {

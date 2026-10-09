@@ -5,10 +5,10 @@
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
-use shattr_library::{Entry, IndexStatus, Library, LibraryEvent};
-use shattr_ui::icons::{Icon, icon};
-use shattr_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
-use shattr_ui::widgets::icon_button;
+use sukurin_library::{Entry, IndexStatus, Library, LibraryEvent};
+use sukurin_ui::icons::{Icon, icon};
+use sukurin_ui::theme::{DARK as T, MONO_FONT, UI_FONT};
+use sukurin_ui::widgets::icon_button;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
@@ -281,7 +281,7 @@ impl LibraryWindow {
         let items = self.visible();
         if items.is_empty() {
             return empty(if self.query.is_empty() {
-                "No screenshots found yet. Shattr looks in Pictures\\Screenshots, OneDrive, Game Bar captures, ShareX, Pictures\\Shattr, and screenshot-named files on the Desktop."
+                "No screenshots found yet. Sukurin looks in Pictures\\Screenshots, OneDrive, Game Bar captures, ShareX, Pictures\\Sukurin, and screenshot-named files on the Desktop."
             } else {
                 "Nothing matches that name."
             });

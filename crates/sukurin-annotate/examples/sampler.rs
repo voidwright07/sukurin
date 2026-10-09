@@ -1,8 +1,8 @@
 //! Renders one of every annotation kind over a synthetic app screenshot.
 //! Usage: cargo run --example sampler -- out.png
 
-use shattr_annotate::*;
-use shattr_core::{Bitmap, Rgba};
+use sukurin_annotate::*;
+use sukurin_core::{Bitmap, Rgba};
 
 const W: u32 = 1600;
 const H: u32 = 1000;

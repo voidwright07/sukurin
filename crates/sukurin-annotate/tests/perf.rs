@@ -1,9 +1,9 @@
-//! Run with: cargo test -p shattr-annotate --release --test perf -- --ignored --nocapture
+//! Run with: cargo test -p sukurin-annotate --release --test perf -- --ignored --nocapture
 
 use std::time::{Duration, Instant};
 
-use shattr_annotate::*;
-use shattr_core::{Bitmap, Rgba};
+use sukurin_annotate::*;
+use sukurin_core::{Bitmap, Rgba};
 
 fn base(w: u32, h: u32) -> Bitmap {
     let mut v = Vec::with_capacity((w * h * 4) as usize);

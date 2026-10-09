@@ -7157,85 +7157,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shattr-annotate"
-version = "0.1.0"
-dependencies = [
- "shattr-core",
- "tiny-skia",
- "ttf-parser",
-]
-
-[[package]]
-name = "shattr-app"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arboard",
- "chrono",
- "dirs 6.0.0",
- "env_logger",
- "global-hotkey",
- "gpui-kit",
- "image",
- "log",
- "raw-window-handle",
- "rqrr",
- "serde",
- "serde_json",
- "shattr-core",
- "shattr-editor",
- "shattr-library",
- "shattr-ui",
- "smol",
- "tray-icon",
- "windows 0.62.2",
- "xcap",
-]
-
-[[package]]
-name = "shattr-core"
-version = "0.1.0"
-
-[[package]]
-name = "shattr-editor"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "env_logger",
- "gpui-kit",
- "image",
- "log",
- "shattr-annotate",
- "shattr-core",
- "shattr-ui",
-]
-
-[[package]]
-name = "shattr-library"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "crossbeam-channel",
- "dirs 6.0.0",
- "image",
- "notify",
- "parking_lot",
- "rusqlite",
- "shattr-core",
- "tempfile",
-]
-
-[[package]]
-name = "shattr-ui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "gpui-kit",
- "image",
- "shattr-core",
-]
-
-[[package]]
 name = "shellexpand"
 version = "3.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7484,6 +7405,86 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+
+[[package]]
+name = "sukurin-annotate"
+version = "0.1.0"
+dependencies = [
+ "sukurin-core",
+ "tiny-skia",
+ "ttf-parser",
+]
+
+[[package]]
+name = "sukurin-app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arboard",
+ "chrono",
+ "dirs 6.0.0",
+ "env_logger",
+ "global-hotkey",
+ "gpui-kit",
+ "image",
+ "log",
+ "raw-window-handle",
+ "rqrr",
+ "serde",
+ "serde_json",
+ "smol",
+ "sukurin-core",
+ "sukurin-editor",
+ "sukurin-library",
+ "sukurin-ui",
+ "tray-icon",
+ "windows 0.62.2",
+ "winresource",
+ "xcap",
+]
+
+[[package]]
+name = "sukurin-core"
+version = "0.1.0"
+
+[[package]]
+name = "sukurin-editor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger",
+ "gpui-kit",
+ "image",
+ "log",
+ "sukurin-annotate",
+ "sukurin-core",
+ "sukurin-ui",
+]
+
+[[package]]
+name = "sukurin-library"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "crossbeam-channel",
+ "dirs 6.0.0",
+ "image",
+ "notify",
+ "parking_lot",
+ "rusqlite",
+ "sukurin-core",
+ "tempfile",
+]
+
+[[package]]
+name = "sukurin-ui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "gpui-kit",
+ "image",
+ "sukurin-core",
+]
 
 [[package]]
 name = "sval"
@@ -9658,6 +9659,16 @@ checksum = "7d6f32a0ff4a9f6f01231eb2059cc85479330739333e0e58cadf03b6af2cca10"
 dependencies = [
  "cfg-if",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "winresource"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0986a8b1d586b7d3e4fe3d9ea39fb451ae22869dcea4aa109d287a374d866087"
+dependencies = [
+ "toml 1.1.6+spec-1.1.0",
+ "version_check",
 ]
 
 [[package]]

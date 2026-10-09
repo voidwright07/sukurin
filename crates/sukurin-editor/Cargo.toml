@@ -1,12 +1,12 @@
 [package]
-name = "shattr-editor"
+name = "sukurin-editor"
 edition.workspace = true
 version.workspace = true
 
 [dependencies]
-shattr-core.workspace = true
-shattr-annotate.workspace = true
-shattr-ui.workspace = true
+sukurin-core.workspace = true
+sukurin-annotate.workspace = true
+sukurin-ui.workspace = true
 gpui-kit = "=0.7.1"
 anyhow = "1"
 log = "0.4"

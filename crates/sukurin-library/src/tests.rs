@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
 use crossbeam_channel::Receiver;
-use shattr_core::Bitmap;
+use sukurin_core::Bitmap;
 use tempfile::TempDir;
 
 use crate::synth::{self, rows, screen};
@@ -182,7 +182,7 @@ fn recorded_capture_is_found_as_exact_without_decoding() {
     let fx = Fixture::new();
     let lib = fx.open(vec![]);
     let capture = shot(7);
-    let path = fx.write("Pictures/Shattr/shattr-20261007-101500.png", &synth::png_bytes(&capture));
+    let path = fx.write("Pictures/Sukurin/sukurin-20261007-101500.png", &synth::png_bytes(&capture));
 
     let recorded = lib.record(&path, &capture).unwrap();
     let hits = lib.similar(&capture, 5);
@@ -249,7 +249,7 @@ fn median(mut v: Vec<Duration>) -> (Duration, Duration, Duration) {
     (v[0], v[v.len() / 2], v[v.len() - 1])
 }
 
-/// `cargo test --release -p shattr-library -- --ignored --nocapture bench`
+/// `cargo test --release -p sukurin-library -- --ignored --nocapture bench`
 #[test]
 #[ignore]
 fn bench() {
@@ -336,7 +336,7 @@ fn bench() {
 
 /// Read-only scan of this machine's real screenshot folders. The database
 /// and thumbnails go to a temporary directory.
-/// `cargo test --release -p shattr-library -- --ignored --nocapture real_machine_scan`
+/// `cargo test --release -p sukurin-library -- --ignored --nocapture real_machine_scan`
 #[test]
 #[ignore]
 fn real_machine_scan() {

@@ -3,7 +3,7 @@
 //! means one image pixel per device pixel, so percentages go through the
 //! window's scale factor.
 
-use shattr_annotate::{Pt, RectF};
+use sukurin_annotate::{Pt, RectF};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Viewport {

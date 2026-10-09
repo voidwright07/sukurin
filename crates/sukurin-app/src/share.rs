@@ -1,18 +1,19 @@
-//! Getting a capture out of Shattr and into another app: dragged out as a
+//! Getting a capture out of Sukurin and into another app: dragged out as a
 //! file, or put on the clipboard as an image plus a text description for an
 //! AI chat to read.
 
+use crate::settings::AiChat;
 use anyhow::{Context as _, Result};
-use shattr_core::{Bitmap, Shot};
+use sukurin_core::{Bitmap, Shot};
 use std::path::PathBuf;
 
 /// The capture as a PNG in the temp folder, named the way a saved one would
 /// be, so the receiving app shows a sensible file name.
 pub fn temp_png(shot: &Shot) -> Result<PathBuf> {
-    let dir = std::env::temp_dir().join("Shattr");
+    let dir = std::env::temp_dir().join("Sukurin");
     std::fs::create_dir_all(&dir)?;
     let stamp = chrono::DateTime::<chrono::Local>::from(shot.taken_at).format("%Y-%m-%d at %H.%M.%S");
-    let path = dir.join(format!("Shattr {stamp}.png"));
+    let path = dir.join(format!("Sukurin {stamp}.png"));
     if !path.exists() {
         std::fs::write(&path, encode_png(&shot.bitmap)?)?;
     }
@@ -131,9 +132,9 @@ pub fn copy_image_and_text(b: &Bitmap, text: &str) -> Result<()> {
     Ok(())
 }
 
-/// Where "Send to AI" opens. `SHATTR_AI_URL` overrides the default chat.
-pub fn ai_url() -> String {
-    std::env::var("SHATTR_AI_URL").unwrap_or_else(|_| "https://claude.ai/new".into())
+/// Where "Send to AI" opens. `SUKURIN_AI_URL` overrides the chosen chat.
+pub fn ai_url(chat: AiChat) -> String {
+    std::env::var("SUKURIN_AI_URL").unwrap_or_else(|_| chat.url().into())
 }
 
 #[cfg(test)]
@@ -145,7 +146,7 @@ mod tests {
         let shot = Shot {
             bitmap: Bitmap::from_bgra(300, 150, vec![0; 300 * 150 * 4]),
             scale: 1.5,
-            source_rect: shattr_core::RectPx::new(0, 0, 300, 150),
+            source_rect: sukurin_core::RectPx::new(0, 0, 300, 150),
             taken_at: std::time::SystemTime::now(),
         };
         let s = ai_context(&shot, &["Deploy".into(), "  ".into(), "Logs".into()]);

@@ -1,6 +1,6 @@
 //! Each annotation reduced to prims.
 
-use shattr_core::Rgba;
+use sukurin_core::Rgba;
 use tiny_skia::{LineCap, LineJoin, PathBuilder, StrokeDash};
 
 use crate::geom::{self, Pen, Poly};

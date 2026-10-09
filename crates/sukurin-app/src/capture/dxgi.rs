@@ -5,7 +5,7 @@
 
 use super::hdr::ToneMap;
 use anyhow::{Context, Result, anyhow};
-use shattr_core::{Bitmap, Display, RectPx};
+use sukurin_core::{Bitmap, Display, RectPx};
 use windows::Win32::Devices::Display::{
     DISPLAYCONFIG_DEVICE_INFO_GET_SDR_WHITE_LEVEL, DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME, DISPLAYCONFIG_MODE_INFO,
     DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_SDR_WHITE_LEVEL, DISPLAYCONFIG_SOURCE_DEVICE_NAME, DisplayConfigGetDeviceInfo,

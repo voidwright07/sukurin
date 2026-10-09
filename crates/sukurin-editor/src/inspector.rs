@@ -9,7 +9,7 @@ use crate::ui::tooltip_text;
 use crate::widgets::*;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
-use shattr_ui::Theme;
+use sukurin_ui::Theme;
 
 pub const WIDTH: f32 = 264.;
 

@@ -1,7 +1,7 @@
 //! Pure geometry for drawing and editing shapes: drag constraints, handle
 //! placement, and the transforms that move and resize a shape.
 
-use shattr_annotate::{ArrowKind, Axis, Pt, RectF, Shape};
+use sukurin_annotate::{ArrowKind, Axis, Pt, RectF, Shape};
 
 /// Snaps `to` so the segment from `from` lies on a multiple of 15°.
 pub fn snap_angle(from: Pt, to: Pt) -> Pt {

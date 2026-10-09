@@ -1,4 +1,4 @@
-//! Design tokens from the Shattr canvas. Volt (`accent`) marks only the
+//! Design tokens from the Sukurin canvas. Volt (`accent`) marks only the
 //! selection and the active tool or mode.
 
 use gpui_kit::Rgba;

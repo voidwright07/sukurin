@@ -3,7 +3,7 @@
 
 use crate::icons::{EIcon, icon};
 use gpui_kit::*;
-use shattr_ui::{MONO_FONT, Theme};
+use sukurin_ui::{MONO_FONT, Theme};
 
 pub fn kbd(t: &Theme, label: impl Into<SharedString>) -> Div {
     div()

@@ -149,7 +149,7 @@ pub fn parse(text: &str) -> Result<Shortcut, String> {
             None => return Err(format!("“{t}” isn't a modifier")),
         }
     }
-    let code = code.ok_or_else(|| format!("“{}” isn't a key Shattr can bind", tokens.last().unwrap()))?;
+    let code = code.ok_or_else(|| format!("“{}” isn't a key Sukurin can bind", tokens.last().unwrap()))?;
     if mods.is_empty() && !standalone_ok(code) {
         return Err("add Ctrl, Alt, Shift or Win so normal typing isn't taken over".into());
     }

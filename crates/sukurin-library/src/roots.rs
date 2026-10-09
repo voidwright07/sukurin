@@ -159,7 +159,7 @@ const SCREENSHOT_PREFIXES: &[&str] = &[
     "cleanshot",
     "shottr",
     "snip",
-    "shattr-",
+    "sukurin-",
     "captura",
     "bildschirmfoto",
     "schermafbeelding",
@@ -211,7 +211,7 @@ fn is_cloud_placeholder(_meta: &Metadata) -> bool {
 pub fn default_roots() -> Vec<Root> {
     let mut roots = platform_roots();
     if let Some(pictures) = dirs::picture_dir() {
-        roots.push(Root::all_images(pictures.join("Shattr")));
+        roots.push(Root::all_images(pictures.join("Sukurin")));
     }
     let mut seen = HashSet::new();
     roots.sort_by_key(|r| r.filter != RootFilter::AllImages);
@@ -320,7 +320,7 @@ mod tests {
             "CleanShot 2024-01-01 at 10.00.00@2x.png",
             "Shottr 2024.png",
             "Snipaste_2023-10-05_14-12-00.png",
-            "shattr-20261005-141200.png",
+            "sukurin-20261005-141200.png",
             "2026-10-05 14_12_00-Visual Studio Code.png",
             "2026-10-05_14-12.png",
             "Bildschirmfoto 2023-10-05 um 14.12.00.png",

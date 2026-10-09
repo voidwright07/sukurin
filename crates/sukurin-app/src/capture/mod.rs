@@ -10,8 +10,8 @@ mod win_windows;
 
 use anyhow::{Result, anyhow};
 #[cfg(not(windows))]
-use shattr_core::Bitmap;
-use shattr_core::{Display, Frame, PointPx, RectPx};
+use sukurin_core::Bitmap;
+use sukurin_core::{Display, Frame, PointPx, RectPx};
 use std::time::SystemTime;
 
 /// A top-level window the overlay can snap to.
@@ -99,7 +99,7 @@ impl Capturer {
                     let r = display.rect;
                     let img = xcap::Monitor::from_point(r.x + 1, r.y + 1)?.capture_image()?;
                     let (w, h) = img.dimensions();
-                    shattr_core::Bitmap::from_rgba(w, h, img.into_raw())
+                    sukurin_core::Bitmap::from_rgba(w, h, img.into_raw())
                 }
             }
         };

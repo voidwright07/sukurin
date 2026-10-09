@@ -1,4 +1,4 @@
-//! Types shared by every Shattr crate. All geometry here is in physical
+//! Types shared by every Sukurin crate. All geometry here is in physical
 //! (device) pixels; logical points only exist at the UI layer.
 
 pub mod stitch;

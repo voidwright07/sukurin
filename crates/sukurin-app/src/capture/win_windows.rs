@@ -1,5 +1,5 @@
 use super::SnapWindow;
-use shattr_core::RectPx;
+use sukurin_core::RectPx;
 use windows::Win32::Foundation::{HWND, LPARAM, RECT};
 use windows::core::BOOL;
 use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS, DwmGetWindowAttribute};

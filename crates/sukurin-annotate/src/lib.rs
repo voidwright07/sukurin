@@ -15,7 +15,7 @@ mod shapes;
 mod sketch;
 mod text;
 
-use shattr_core::{Bitmap, Rgba};
+use sukurin_core::{Bitmap, Rgba};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Pt {

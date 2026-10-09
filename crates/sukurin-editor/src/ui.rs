@@ -11,10 +11,10 @@ use crate::tools::{Props, TOOLS, Tool};
 use crate::widgets::*;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
-use shattr_annotate::{ArrowKind, Backdrop, Dash, Document, Fill as ShapeFill, Pt, RectF, RedactMode, Shape, TextBackground};
-use shattr_core::Rgba as CoreRgba;
-use shattr_ui::theme::ANNOTATION_INK;
-use shattr_ui::{MONO_FONT, Theme, UI_FONT};
+use sukurin_annotate::{ArrowKind, Backdrop, Dash, Document, Fill as ShapeFill, Pt, RectF, RedactMode, Shape, TextBackground};
+use sukurin_core::Rgba as CoreRgba;
+use sukurin_ui::theme::ANNOTATION_INK;
+use sukurin_ui::{MONO_FONT, Theme, UI_FONT};
 use std::time::Duration;
 
 pub struct BackdropPreset {
@@ -47,7 +47,7 @@ impl BackdropPreset {
             let c = doc
                 .layers
                 .first()
-                .and_then(|l| l.bitmap.average(shattr_core::RectPx::new(0, 0, l.bitmap.width(), 2)))
+                .and_then(|l| l.bitmap.average(sukurin_core::RectPx::new(0, 0, l.bitmap.width(), 2)))
                 .unwrap_or(core(0xF3F4F6));
             (c, c)
         } else {
@@ -127,7 +127,7 @@ impl Editor {
         if is_mac {
             bar = bar.child(drag(div().w(px(78.)).h_full().flex_none()));
         } else if is_win {
-            bar = bar.child(drag(div().h_full().flex().items_center().pl(px(12.)).pr(px(10.)).flex_none().child(icon(EIcon::Logo).text_color(t.text))));
+            bar = bar.child(drag(div().h_full().flex().items_center().pl(px(12.)).pr(px(10.)).flex_none().child(sukurin_ui::mark(px(16.), &t))));
         } else {
             bar = bar.child(drag(div().w(px(14.)).h_full().flex_none()));
         }
@@ -537,7 +537,7 @@ impl Editor {
                     };
                     let fill: Background = match i {
                         0 => transparent_black().into(),
-                        5 => self.doc.layers.first().and_then(|l| l.bitmap.average(shattr_core::RectPx::new(0, 0, l.bitmap.width(), 2))).map_or(gpui(core(0xF3F4F6)).into(), |c| gpui(c).into()),
+                        5 => self.doc.layers.first().and_then(|l| l.bitmap.average(sukurin_core::RectPx::new(0, 0, l.bitmap.width(), 2))).map_or(gpui(core(0xF3F4F6)).into(), |c| gpui(c).into()),
                         _ => p.fill(),
                     };
                     dots = dots.child(
@@ -1060,7 +1060,7 @@ fn corner_pieces(b: &Backdrop, content: RectF, vp: &Viewport) -> Vec<(Vec<Pt>, R
 
 /// Inside a pill the caret sits on the annotation colour, so it takes the
 /// glyph ink instead.
-fn caret_colour(s: &shattr_annotate::Style) -> Rgba {
+fn caret_colour(s: &sukurin_annotate::Style) -> Rgba {
     let c = s.color;
     if s.text_background != TextBackground::Pill {
         return gpui(c);
@@ -1192,7 +1192,7 @@ impl Render for Editor {
         let palette = self.palette.is_some().then(|| self.palette_view(&t, dark, cx).into_any_element());
         div()
             .id("editor")
-            .key_context("ShattrEditor")
+            .key_context("SukurinEditor")
             .track_focus(&self.focus)
             .size_full()
             .relative()

@@ -1,10 +1,10 @@
 [package]
-name = "shattr-library"
+name = "sukurin-library"
 edition.workspace = true
 version.workspace = true
 
 [dependencies]
-shattr-core.workspace = true
+sukurin-core.workspace = true
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 rusqlite = { version = "0.37", features = ["bundled"] }
 notify = "8"

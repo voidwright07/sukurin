@@ -1,7 +1,7 @@
 use crate::icons::{Icon, icon};
 use crate::theme::{DARK as T, MONO_FONT, Theme};
 use gpui_kit::*;
-use shattr_core::Bitmap;
+use sukurin_core::Bitmap;
 use std::sync::Arc;
 
 /// GPUI consumes BGRA, which is how `Bitmap` already stores pixels.
@@ -41,6 +41,16 @@ pub fn pill() -> Div {
         .items_center()
         .gap(px(8.))
         .whitespace_nowrap()
+}
+
+/// The Sukurin logo: the body in text colour, the broken-off shard in the accent.
+pub fn mark(size: Pixels, t: &Theme) -> Div {
+    div()
+        .relative()
+        .size(size)
+        .flex_none()
+        .child(icon(Icon::Mark).absolute().size(size).text_color(t.text))
+        .child(icon(Icon::MarkShard).absolute().size(size).text_color(t.accent))
 }
 
 /// SVGs don't inherit text colour in GPUI, so the icon is tinted explicitly

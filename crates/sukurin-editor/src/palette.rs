@@ -6,7 +6,7 @@ use crate::keys::{self, Action, Entry};
 use crate::widgets::{kbd, label};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
-use shattr_ui::Theme;
+use sukurin_ui::Theme;
 
 const GROUPS: [&str; 6] = ["Tools", "Edit", "Canvas", "View", "Inspect", "Export"];
 const VISIBLE_ROWS: usize = 12;

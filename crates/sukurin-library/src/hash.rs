@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use shattr_core::Bitmap;
+use sukurin_core::Bitmap;
 
 /// Grid columns. Screenshots change mostly along text lines, so columns get
 /// twice the resolution of rows: a reflowed table row moves ink between
@@ -324,7 +324,7 @@ fn tolerance(a: &Summary, b: &Summary) -> Option<u8> {
 mod tests {
     use super::*;
     use crate::synth::*;
-    use shattr_core::RectPx;
+    use sukurin_core::RectPx;
 
     /// A reference image, hashed once, that candidates are compared with.
     struct Reference {

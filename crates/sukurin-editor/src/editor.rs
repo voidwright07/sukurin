@@ -9,11 +9,11 @@ use crate::tools::Tool;
 use crate::viewport::{self, Viewport};
 use crate::EditorHost;
 use gpui_kit::*;
-use shattr_annotate::{
+use sukurin_annotate::{
     AnnotationId, ArrowKind, Axis, Backdrop, Document, History, Pt, RectF, RedactMode, Shape, Style,
 };
-use shattr_core::{Bitmap, Shot};
-use shattr_ui::{DARK, LIGHT, Theme};
+use sukurin_core::{Bitmap, Shot};
+use sukurin_ui::{DARK, LIGHT, Theme};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -78,7 +78,7 @@ impl Default for Defaults {
         let style = Style::default();
         Self {
             style,
-            measure: Style { color: shattr_core::Rgba::opaque(0xE2, 0x3D, 0x9B), width: 2., ..style },
+            measure: Style { color: sukurin_core::Rgba::opaque(0xE2, 0x3D, 0x9B), width: 2., ..style },
             spotlight: style,
             arrow: ArrowKind::Curved,
             blur: RedactMode::Pixelate,
@@ -132,7 +132,7 @@ pub struct SceneCache {
     crisp_images: ImageCache,
 }
 
-type BackdropKey = (shattr_core::Rgba, shattr_core::Rgba, u32, u32, u32, u32);
+type BackdropKey = (sukurin_core::Rgba, sukurin_core::Rgba, u32, u32, u32, u32);
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct CrispKey {
@@ -189,10 +189,10 @@ pub struct Editor {
     _appearance: Subscription,
 }
 
-/// Follows the OS appearance. `SHATTR_THEME=light|dark` overrides it, for
+/// Follows the OS appearance. `SUKURIN_THEME=light|dark` overrides it, for
 /// checking both themes without touching system settings.
 pub fn theme(window: &Window) -> (Theme, bool) {
-    match std::env::var("SHATTR_THEME").as_deref() {
+    match std::env::var("SUKURIN_THEME").as_deref() {
         Ok("light") => return (LIGHT, false),
         Ok("dark") => return (DARK, true),
         _ => {}
@@ -590,7 +590,7 @@ impl Editor {
 
     pub fn export(&self) -> Bitmap {
         let t = Instant::now();
-        let b = shattr_annotate::export(&self.doc);
+        let b = sukurin_annotate::export(&self.doc);
         log::info!("export {}x{} in {:.1} ms", b.width(), b.height(), t.elapsed().as_secs_f64() * 1000.);
         b
     }
@@ -787,7 +787,7 @@ impl Editor {
 
     pub fn average(&self, r: RectF) -> Option<Srgb> {
         let l = self.doc.layers.first()?;
-        let rect = shattr_core::RectPx::new(
+        let rect = sukurin_core::RectPx::new(
             (r.x - l.origin.x).floor() as i32,
             (r.y - l.origin.y).floor() as i32,
             r.w.ceil().max(1.) as u32,
@@ -799,7 +799,7 @@ impl Editor {
     fn trim_to_content(&mut self, cx: &mut Context<Self>) {
         let Some(l) = self.doc.layers.first() else { return };
         let from = self.crop_draft.or(self.doc.crop).unwrap_or(self.canvas_bounds());
-        let rect = shattr_core::RectPx::new(
+        let rect = sukurin_core::RectPx::new(
             (from.x - l.origin.x).round() as i32,
             (from.y - l.origin.y).round() as i32,
             from.w.round() as u32,
@@ -874,7 +874,7 @@ impl Editor {
         let r = self.canvas_bounds();
         let origin = Pt::new(r.x + r.w + self.defaults.gap * self.doc.scale, r.y);
         self.mutate(|d| {
-            d.layers.push(shattr_annotate::Layer { bitmap, origin });
+            d.layers.push(sukurin_annotate::Layer { bitmap, origin });
             d.crop = None;
         });
         self.fit();
@@ -1014,7 +1014,7 @@ impl Editor {
                 (r.x + r.w - l.origin.x).ceil().min(l.bitmap.width() as f32),
                 (r.y + r.h - l.origin.y).ceil().min(l.bitmap.height() as f32),
             );
-            let src = shattr_core::RectPx::new(x0 as i32, y0 as i32, (x1 - x0) as u32, (y1 - y0) as u32);
+            let src = sukurin_core::RectPx::new(x0 as i32, y0 as i32, (x1 - x0) as u32, (y1 - y0) as u32);
             let Some(crop) = l.bitmap.crop(src) else { continue };
             let k = (zoom.round() as u32).clamp(2, 64).min(4096 / crop.width().max(1)).min(4096 / crop.height().max(1)).max(1);
             let up = paint::nearest(&crop, crop.width() * k, crop.height() * k);
@@ -1057,9 +1057,9 @@ impl Editor {
                     below.annotations.truncate(i);
                     let mut above = self.doc.clone();
                     above.annotations.drain(..=i);
-                    (shattr_annotate::annotations_scene(&below), shattr_annotate::annotations_scene(&above))
+                    (sukurin_annotate::annotations_scene(&below), sukurin_annotate::annotations_scene(&above))
                 }
-                None => (shattr_annotate::annotations_scene(&self.doc), Vec::new()),
+                None => (sukurin_annotate::annotations_scene(&self.doc), Vec::new()),
             };
             cache.base_images.begin();
             cache.base = paint::prepare(&below, &mut cache.base_images);
@@ -1084,7 +1084,7 @@ impl Editor {
         }
         match live {
             Some(id) if cache.live_key != Some((self.rev, id)) => {
-                let scene = shattr_annotate::annotation_scene(&self.doc, id);
+                let scene = sukurin_annotate::annotation_scene(&self.doc, id);
                 cache.live_images.begin();
                 cache.live = paint::prepare(&scene, &mut cache.live_images);
                 cache.live_images.end();
@@ -1835,8 +1835,8 @@ pub fn resample(b: &Bitmap, w: u32, h: u32, nearest: bool) -> Bitmap {
 mod tests {
     use super::{backdrop_frame, degenerate, drawn_shape, gradient, is_typing, resample};
     use gpui_kit::{Keystroke, Modifiers};
-    use shattr_annotate::{ArrowKind, Backdrop, Pt, RectF, Shape};
-    use shattr_core::Bitmap;
+    use sukurin_annotate::{ArrowKind, Backdrop, Pt, RectF, Shape};
+    use sukurin_core::Bitmap;
 
     #[test]
     fn a_click_without_drag_is_degenerate() {
@@ -1849,8 +1849,8 @@ mod tests {
     #[test]
     fn backdrop_frame_pads_then_meets_the_aspect() {
         let b = Backdrop {
-            from: shattr_core::Rgba::opaque(0, 0, 0),
-            to: shattr_core::Rgba::opaque(0, 0, 0),
+            from: sukurin_core::Rgba::opaque(0, 0, 0),
+            to: sukurin_core::Rgba::opaque(0, 0, 0),
             padding: 10.,
             shadow: 0.,
             radius: 0.,
@@ -1872,14 +1872,14 @@ mod tests {
         let b = Bitmap::from_bgra(4, 2, [10u8, 20, 30, 255].repeat(8));
         let r = resample(&b, 3, 5, false);
         assert_eq!((r.width(), r.height()), (3, 5));
-        assert_eq!(r.pixel(2, 4).unwrap(), shattr_core::Rgba { r: 30, g: 20, b: 10, a: 255 });
+        assert_eq!(r.pixel(2, 4).unwrap(), sukurin_core::Rgba { r: 30, g: 20, b: 10, a: 255 });
     }
 
     #[test]
     fn gradient_runs_corner_to_corner() {
         let b = Backdrop {
-            from: shattr_core::Rgba::opaque(0, 0, 0),
-            to: shattr_core::Rgba::opaque(200, 100, 50),
+            from: sukurin_core::Rgba::opaque(0, 0, 0),
+            to: sukurin_core::Rgba::opaque(200, 100, 50),
             padding: 0.,
             shadow: 0.,
             radius: 0.,

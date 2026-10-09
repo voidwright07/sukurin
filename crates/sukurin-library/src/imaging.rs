@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::Result;
 use image::ImageReader;
 use image::codecs::jpeg::JpegEncoder;
-use shattr_core::Bitmap;
+use sukurin_core::Bitmap;
 
 pub(crate) fn decode(path: &Path) -> Result<Bitmap> {
     let img = ImageReader::open(path)?.with_guessed_format()?.decode()?.into_rgba8();

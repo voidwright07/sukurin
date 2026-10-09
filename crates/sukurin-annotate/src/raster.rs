@@ -1,6 +1,6 @@
 //! Rasterises a scene with tiny-skia and frames it with the backdrop.
 
-use shattr_core::{Bitmap, Rgba};
+use sukurin_core::{Bitmap, Rgba};
 use tiny_skia::{
     Color, FillRule, FilterQuality, GradientStop, IntSize, LinearGradient, Mask, Paint, Pattern, Pixmap, PixmapPaint,
     Point, SpreadMode, Transform,

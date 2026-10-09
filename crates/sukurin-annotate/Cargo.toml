@@ -1,9 +1,9 @@
 [package]
-name = "shattr-annotate"
+name = "sukurin-annotate"
 edition.workspace = true
 version.workspace = true
 
 [dependencies]
-shattr-core.workspace = true
+sukurin-core.workspace = true
 tiny-skia = "0.11"
 ttf-parser = "0.25"

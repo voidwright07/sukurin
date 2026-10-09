@@ -1,6 +1,6 @@
 //! The capture editor window: canvas with zoom and pan, tool strip,
 //! contextual properties bar, status bar, inspector dock and command palette.
-//! Everything drawn on the canvas comes from `shattr_annotate`'s scene, the
+//! Everything drawn on the canvas comes from `sukurin_annotate`'s scene, the
 //! same one its `export` rasterises.
 
 mod color;
@@ -21,7 +21,7 @@ pub use icons::EditorAssets;
 use anyhow::{Context as _, Result};
 use editor::Editor;
 use gpui_kit::*;
-use shattr_core::{Bitmap, Shot};
+use sukurin_core::{Bitmap, Shot};
 use std::rc::Rc;
 use std::time::Instant;
 

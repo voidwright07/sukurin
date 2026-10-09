@@ -5,7 +5,7 @@
 use crate::icons::EIcon;
 use crate::tools::{TOOLS, Tool};
 use gpui_kit::Keystroke;
-use shattr_annotate::ArrowKind;
+use sukurin_annotate::ArrowKind;
 
 /// One key plus modifiers. `secondary` is ⌘ on macOS and Ctrl elsewhere.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -182,7 +182,7 @@ pub const COMMANDS: &[Command] = &[
     cmd(Action::Copy, "Copy image", "Export", &[Shortcut::secondary("c")], EIcon::Copy),
     cmd(Action::Save, "Save", "Export", &[Shortcut::secondary("s")], EIcon::Save),
     cmd(Action::Pin, "Pin to screen", "Export", &[Shortcut::secondary("p")], EIcon::Pin),
-    cmd(Action::OpenLibrary, "Search screenshots (Library)", "Shattr", &[Shortcut::secondary_shift("k")], EIcon::Search),
+    cmd(Action::OpenLibrary, "Search screenshots (Library)", "Sukurin", &[Shortcut::secondary_shift("k")], EIcon::Search),
     Command { soon: true, ..cmd(Action::Upload, "Upload and copy link", "Export", &[Shortcut::secondary("u")], EIcon::Upload) },
     Command { soon: true, ..cmd(Action::SendToAi, "Send to AI", "Export", &[Shortcut::secondary("enter")], EIcon::Ai) },
     cmd(Action::Close, "Close editor", "Export", &[Shortcut::key("escape")], EIcon::Close),

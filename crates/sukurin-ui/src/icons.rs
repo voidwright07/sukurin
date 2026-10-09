@@ -1,5 +1,5 @@
-//! Shattr's own 16 px stroke icons, served to GPUI as SVG assets under
-//! `shattr/`. GPUI renders SVGs as alpha masks tinted by `text_color`.
+//! Sukurin's own 16 px stroke icons, served to GPUI as SVG assets under
+//! `sukurin/`. GPUI renders SVGs as alpha masks tinted by `text_color`.
 
 use anyhow::Result;
 use gpui_kit::{AssetSource, SharedString, Styled, Svg, px, svg};
@@ -27,6 +27,8 @@ pub enum Icon {
     Grip,
     Opacity,
     Library,
+    Mark,
+    MarkShard,
 }
 
 const ICONS: &[(Icon, &str, &str)] = &[
@@ -48,6 +50,9 @@ const ICONS: &[(Icon, &str, &str)] = &[
     (Icon::Grip, "grip", r#"<path d="M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01" stroke-width="2.2"/>"#),
     (Icon::Opacity, "opacity", r#"<circle cx="8" cy="8" r="5.5"/><path d="M8 2.5a5.5 5.5 0 010 11z" fill="black"/>"#),
     (Icon::Library, "library", r#"<rect x="2.5" y="2.5" width="5" height="5" rx="1"/><rect x="8.5" y="2.5" width="5" height="5" rx="1"/><rect x="2.5" y="8.5" width="5" height="5" rx="1"/><rect x="8.5" y="8.5" width="5" height="5" rx="1"/>"#),
+    // The two pieces of the logo, on the same 16-module grid as the tray and app icons; `widgets::mark` stacks them.
+    (Icon::Mark, "mark", r#"<path d="M2 2h12v3h-3v3H8v3H5v3H2z" fill="black" stroke="none"/>"#),
+    (Icon::MarkShard, "mark-shard", r#"<path d="M15 6v9H6v-3h3V9h3V6z" fill="black" stroke="none"/>"#),
 ];
 
 impl Icon {
@@ -56,7 +61,7 @@ impl Icon {
     }
 
     pub fn path(self) -> SharedString {
-        format!("shattr/{}.svg", self.spec().1).into()
+        format!("sukurin/{}.svg", self.spec().1).into()
     }
 }
 
@@ -74,7 +79,7 @@ fn documents() -> &'static HashMap<String, Vec<u8>> {
                 let doc = format!(
                     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">{body}</svg>"#
                 );
-                (format!("shattr/{name}.svg"), doc.into_bytes())
+                (format!("sukurin/{name}.svg"), doc.into_bytes())
             })
             .collect()
     })

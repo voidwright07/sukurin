@@ -1,10 +1,10 @@
 [package]
-name = "shattr-ui"
+name = "sukurin-ui"
 edition.workspace = true
 version.workspace = true
 
 [dependencies]
-shattr-core.workspace = true
+sukurin-core.workspace = true
 gpui-kit = "=0.7.1"
 image = { version = "0.25", default-features = false }
 anyhow = "1"

@@ -6,6 +6,7 @@ mod capture;
 mod countdown;
 mod overlay;
 mod library_window;
+mod onboarding;
 mod pin;
 mod recognize;
 mod scroll;
@@ -13,6 +14,7 @@ mod settings;
 mod settings_window;
 mod share;
 mod shortcuts;
+mod system_keys;
 mod thumbnail;
 mod toast;
 mod tray;
@@ -30,10 +32,10 @@ impl Render for Idle {
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     if !single_instance() {
-        log::info!("Shattr is already running");
+        log::info!("Sukurin is already running");
         return;
     }
-    gpui_kit::application().with_assets(shattr_editor::EditorAssets).run(|cx| {
+    gpui_kit::application().with_assets(sukurin_editor::EditorAssets).run(|cx| {
         gpui_kit::init(cx);
         if let Err(e) = start(cx) {
             log::error!("{e:#}");
@@ -45,7 +47,7 @@ fn main() {
 fn start(cx: &mut App) -> anyhow::Result<()> {
     gpui_kit::component::Theme::change(gpui_kit::component::ThemeMode::Dark, None, cx);
     app::install(cx)?;
-    // GPUI quits when its last window closes; Shattr lives in the tray, so
+    // GPUI quits when its last window closes; Sukurin lives in the tray, so
     // one invisible window keeps the app alive between captures.
     open_window(
         WindowOptions {
@@ -65,9 +67,13 @@ fn start(cx: &mut App) -> anyhow::Result<()> {
     if std::env::args().any(|a| a == "--library") {
         let _ = tx.try_send(app::Command::OpenLibrary);
     }
-    let (resident, refused) = tray::install(tx, &settings::Settings::load())?;
+    let settings = settings::Settings::load();
+    if !settings.onboarded || std::env::args().any(|a| a == "--onboarding") {
+        let _ = tx.try_send(app::Command::OpenOnboarding);
+    }
+    let (resident, refused) = tray::install(tx, &settings)?;
     for r in refused {
-        log::warn!("{} shortcut {} not active: {}", r.action, r.shortcut, r.reason);
+        log::warn!("{} shortcut {} not active: {}", r.action, r.shortcut, r.problem.message());
     }
     cx.set_global(resident);
     cx.spawn(async move |cx| {
@@ -76,7 +82,7 @@ fn start(cx: &mut App) -> anyhow::Result<()> {
         }
     })
     .detach();
-    log::info!("Shattr ready");
+    log::info!("Sukurin ready");
     Ok(())
 }
 
@@ -106,7 +112,7 @@ fn single_instance() -> bool {
     use windows::Win32::System::Threading::CreateMutexW;
     use windows::core::w;
     unsafe {
-        let handle = CreateMutexW(None, true, w!("Local\\ShattrSingleInstance"));
+        let handle = CreateMutexW(None, true, w!("Local\\SukurinSingleInstance"));
         let first = handle.is_ok() && GetLastError() != ERROR_ALREADY_EXISTS;
         // The mutex must outlive the process, so its handle is leaked on purpose.
         std::mem::forget(handle);

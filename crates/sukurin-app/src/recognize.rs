@@ -2,7 +2,7 @@
 //! thread; the OS OCR engine is used where one exists.
 
 use anyhow::Result;
-use shattr_core::Bitmap;
+use sukurin_core::Bitmap;
 
 pub struct Recognized {
     pub lines: Vec<String>,
