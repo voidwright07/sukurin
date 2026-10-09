@@ -49,6 +49,8 @@ macos-universal)
 linux-x86_64)
 	asset=sukurin-linux-x86_64.tar.gz
 	install -m 755 target/x86_64-unknown-linux-gnu/release/sukurin "$stage/sukurin"
+	# The release profile keeps line tables, which on Linux live inside the binary (371 MB -> 70 MB).
+	strip --strip-debug "$stage/sukurin"
 	cp packaging/linux/sukurin.desktop "$stage/sukurin.desktop"
 	cp assets/icon/sukurin.png "$stage/sukurin.png"
 	rm -f "dist/$asset"
