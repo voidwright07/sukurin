@@ -97,6 +97,7 @@ packages_for() {
 	libpango-1.0.so*) echo "libpango-1.0-0 pango pango" ;;
 	libgdk_pixbuf-2.0.so*) echo "libgdk-pixbuf-2.0-0 gdk-pixbuf2 gdk-pixbuf2" ;;
 	libglib-2.0.so* | libgobject-2.0.so* | libgio-2.0.so*) echo "libglib2.0-0 glib2 glib2" ;;
+	libxcb-xkb.so*) echo "libxcb-xkb1 libxcb libxcb" ;;
 	libxcb.so*) echo "libxcb1 libxcb libxcb" ;;
 	libxkbcommon-x11.so*) echo "libxkbcommon-x11-0 libxkbcommon-x11 libxkbcommon-x11" ;;
 	libxkbcommon.so*) echo "libxkbcommon0 libxkbcommon libxkbcommon" ;;
