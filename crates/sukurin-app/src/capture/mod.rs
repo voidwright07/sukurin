@@ -42,20 +42,24 @@ impl Capturer {
         }
         #[cfg(not(windows))]
         {
+            #[cfg(target_os = "linux")]
+            let rects = randr_rects()?;
             let monitors = xcap::Monitor::all()?
                 .into_iter()
                 .map(|m| {
-                    let d = Display {
-                        rect: RectPx::new(
-                            m.x().unwrap_or(0),
-                            m.y().unwrap_or(0),
-                            m.width().unwrap_or(0),
-                            m.height().unwrap_or(0),
-                        ),
-                        scale: m.scale_factor().unwrap_or(1.0),
-                        name: m.name().unwrap_or_default(),
-                    };
-                    (d, m)
+                    #[cfg(target_os = "linux")]
+                    let (rect, scale) = (
+                        m.id().ok().and_then(|id| rects.get(&id).copied()).unwrap_or_default(),
+                        if wayland() { 1.0 } else { m.scale_factor().unwrap_or(1.0) },
+                    );
+                    #[cfg(not(target_os = "linux"))]
+                    let (rect, scale) = (
+                        RectPx::new(m.x().unwrap_or(0), m.y().unwrap_or(0), m.width().unwrap_or(0), m.height().unwrap_or(0)),
+                        m.scale_factor().unwrap_or(1.0),
+                    );
+                    let name = m.name().unwrap_or_default();
+                    log::debug!("display {name}: {rect:?} at scale {scale}");
+                    (Display { rect, scale, name }, m)
                 })
                 .collect();
             Ok(Self { monitors })
@@ -110,12 +114,49 @@ impl Capturer {
                 .iter()
                 .find(|(d, _)| d.rect == display.rect)
                 .ok_or_else(|| anyhow!("display {} went away", display.name))?;
+            // Without a GNOME or portal screenshot service xcap falls back to
+            // libwayshot, which panics on compositors lacking the wlroots
+            // protocols. Unwinding through GPUI's Wayland dispatch then takes
+            // the process down, so the panic is contained here.
+            #[cfg(target_os = "linux")]
+            let img = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| m.capture_image()))
+                .map_err(|_| anyhow!("the screen capture backend panicked; see the log above"))??;
+            #[cfg(not(target_os = "linux"))]
             let img = m.capture_image()?;
             let (w, h) = img.dimensions();
             Bitmap::from_rgba(w, h, img.into_raw())
         };
         Ok(Frame { display: display.clone(), bitmap, taken_at: SystemTime::now() })
     }
+}
+
+/// Monitor rectangles in physical pixels, keyed by RandR output id. xcap's
+/// own position and size accessors divide by a scale factor they read through
+/// libwayshot, which aborts on compositors without the wlroots protocols
+/// (GNOME, Weston). xcap crops captures with this same raw RandR data, so the
+/// geometry and the pixels agree.
+#[cfg(target_os = "linux")]
+fn randr_rects() -> Result<std::collections::HashMap<u32, RectPx>> {
+    use xcb::{Xid, randr};
+    let (conn, screen) = xcb::Connection::connect_with_extensions(None, &[xcb::Extension::RandR], &[])?;
+    let root = conn.get_setup().roots().nth(screen as usize).ok_or_else(|| anyhow!("no X screen"))?.root();
+    let reply = conn.wait_for_reply(conn.send_request(&randr::GetMonitors { window: root, get_active: true }))?;
+    let mut rects = std::collections::HashMap::new();
+    for m in reply.monitors() {
+        let rect = RectPx::new(m.x() as i32, m.y() as i32, m.width() as u32, m.height() as u32);
+        for output in m.outputs() {
+            rects.insert(output.resource_id(), rect);
+        }
+    }
+    Ok(rects)
+}
+
+/// xcap's own test for a Wayland session, which decides whether its scale
+/// factor lookup goes through libwayshot.
+#[cfg(target_os = "linux")]
+fn wayland() -> bool {
+    std::env::var("XDG_SESSION_TYPE").is_ok_and(|t| t == "wayland")
+        || std::env::var("WAYLAND_DISPLAY").is_ok_and(|d| d.to_lowercase().contains("wayland"))
 }
 
 pub fn cursor_position() -> PointPx {
