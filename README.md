@@ -91,7 +91,8 @@ Measured on a 2560x1600 HDR display at 150% (RTX 4080 laptop), release build:
 ## Platform status
 
 - **Windows:** everything above works and was driven end to end on a real desktop.
-- **macOS, Linux:** capture falls back to `xcap` (slow path), there is no OCR engine wired, drag-out and the multi-format AI clipboard are Windows-only, and nothing has been built or run on those systems yet. Wayland adds portal permission prompts and GNOME offers no always-on-top for pins.
+- **macOS, Linux:** capture falls back to `xcap` (slow path), there is no OCR engine wired, and drag-out and the multi-format AI clipboard are Windows-only. Both build in CI; macOS has not been run yet.
+- **Linux specifics:** Sukurin starts on Wayland and X11 and its tray menu works (GNOME needs the AppIndicator extension, which Ubuntu enables by default). Use the tray menu to capture: global shortcuts are X11 key grabs, which GNOME on Wayland does not deliver, and clicking the tray icon does not capture. On Wayland, capture goes through GNOME's or the desktop portal's screenshot service and may ask for permission; when neither is available it reports an error instead of capturing. Pins are not kept on top under GNOME.
 
 ## Diagnostics
 
