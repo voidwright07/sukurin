@@ -3,7 +3,9 @@
 //! AI chat to read.
 
 use crate::settings::AiChat;
-use anyhow::{Context as _, Result};
+#[cfg(windows)]
+use anyhow::Context as _;
+use anyhow::Result;
 use sukurin_core::{Bitmap, Shot};
 use std::path::PathBuf;
 

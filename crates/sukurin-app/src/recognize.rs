@@ -31,6 +31,7 @@ fn qr_codes(b: &Bitmap) -> Vec<String> {
 
 /// Small UI text recognises far better when enlarged; the OS engines are
 /// tuned for camera-sized glyphs.
+#[cfg(windows)]
 fn upscale_for_ocr(b: &Bitmap) -> Bitmap {
     let k = if b.height() < 400 { 3 } else if b.height() < 1200 { 2 } else { 1 };
     if k == 1 {
