@@ -7426,6 +7426,7 @@ dependencies = [
  "env_logger",
  "global-hotkey",
  "gpui-kit",
+ "gtk",
  "image",
  "log",
  "raw-window-handle",

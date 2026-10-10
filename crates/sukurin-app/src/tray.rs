@@ -18,13 +18,74 @@ use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, 
 /// Lives as long as the app; dropping it removes the icon and unregisters
 /// the hotkeys.
 pub struct Resident {
-    _tray: TrayIcon,
+    tray: Tray,
     manager: GlobalHotKeyManager,
     /// Hotkey id to command, read by the OS hotkey callback.
     routes: Arc<Mutex<HashMap<u32, Command>>>,
     registered: Vec<HotKey>,
-    /// Menu items whose label carries the action's first shortcut.
-    labelled: Vec<(MenuItem, &'static str, &'static str)>,
+}
+
+/// The icon and the menu items whose label carries the action's first
+/// shortcut, one per `ACTIONS` entry in order.
+struct Built {
+    _icon: TrayIcon,
+    labelled: Vec<MenuItem>,
+}
+
+/// Where the tray objects live. Windows lets any thread touch them and macOS
+/// wants the main thread, so both keep them here. GTK objects are bound to
+/// the thread that called `gtk::init`, which GPUI's main thread never does,
+/// so Linux parks them on a thread of their own and posts label updates to
+/// it through the GLib main context.
+#[cfg(not(target_os = "linux"))]
+struct Tray(Built);
+
+#[cfg(target_os = "linux")]
+struct Tray;
+
+#[cfg(target_os = "linux")]
+thread_local! {
+    static GTK_TRAY: std::cell::RefCell<Option<Built>> = const { std::cell::RefCell::new(None) };
+}
+
+impl Tray {
+    #[cfg(not(target_os = "linux"))]
+    fn install(tx: Sender<Command>) -> Result<Self> {
+        build(tx).map(Self)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn relabel(&self, labels: Vec<String>) {
+        for (item, text) in self.0.labelled.iter().zip(labels) {
+            item.set_text(text);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn install(tx: Sender<Command>) -> Result<Self> {
+        let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+        std::thread::Builder::new().name("gtk-tray".into()).spawn(move || {
+            let built = gtk::init().map_err(anyhow::Error::from).and_then(|()| build(tx));
+            let ok = built.is_ok();
+            let _ = ready_tx.send(built.map(|b| GTK_TRAY.set(Some(b))));
+            if ok {
+                gtk::main();
+            }
+        })?;
+        ready_rx.recv()??;
+        Ok(Self)
+    }
+
+    #[cfg(target_os = "linux")]
+    fn relabel(&self, labels: Vec<String>) {
+        gtk::glib::MainContext::default().invoke(move || {
+            GTK_TRAY.with_borrow(|t| {
+                for (item, text) in t.iter().flat_map(|b| &b.labelled).zip(labels) {
+                    item.set_text(text);
+                }
+            })
+        });
+    }
 }
 
 impl Global for Resident {}
@@ -104,12 +165,14 @@ impl Resident {
             }
         }
         *self.routes.lock().unwrap() = routes;
-        for (item, id, label) in &self.labelled {
-            item.set_text(match first.get(id) {
-                Some(k) => format!("{label}\t{k}"),
-                None => label.to_string(),
-            });
-        }
+        let labels = ACTIONS
+            .iter()
+            .map(|a| match first.get(a.id) {
+                Some(k) => format!("{}\t{k}", a.label),
+                None => a.label.to_string(),
+            })
+            .collect();
+        self.tray.relabel(labels);
         refused
     }
 
@@ -145,8 +208,16 @@ pub fn install(tx: Sender<Command>, settings: &Settings) -> Result<(Resident, Ve
         }
     }));
 
-    let labelled: Vec<(MenuItem, &'static str, &'static str)> =
-        ACTIONS.iter().map(|a| (MenuItem::new(a.label, true, None), a.id, a.label)).collect();
+    let tray = Tray::install(tx)?;
+    let mut resident = Resident { tray, manager, routes, registered: Vec::new() };
+    let refused = resident.apply(settings);
+    Ok((resident, refused))
+}
+
+/// Creates the icon and menu and wires their events to `tx`, on the thread
+/// that may own them (see `Tray`).
+fn build(tx: Sender<Command>) -> Result<Built> {
+    let labelled: Vec<MenuItem> = ACTIONS.iter().map(|a| MenuItem::new(a.label, true, None)).collect();
     let plain = [
         (MenuItem::new("Settings…", true, None), Command::OpenSettings),
         (MenuItem::new("Open captures folder", true, None), Command::OpenFolder),
@@ -154,7 +225,7 @@ pub fn install(tx: Sender<Command>, settings: &Settings) -> Result<(Resident, Ve
     ];
     let autostart = CheckMenuItem::new("Start with Windows", cfg!(windows), crate::autostart::is_enabled(), None);
     let menu = Menu::new();
-    for (item, _, _) in &labelled {
+    for item in &labelled {
         menu.append(item)?;
     }
     menu.append(&PredefinedMenuItem::separator())?;
@@ -164,10 +235,8 @@ pub fn install(tx: Sender<Command>, settings: &Settings) -> Result<(Resident, Ve
     menu.append(&autostart)?;
     menu.append(&plain[2].0)?;
 
-    let mut by_menu: HashMap<_, _> = labelled
-        .iter()
-        .map(|(item, id, _)| (item.id().clone(), shortcuts::action(id).unwrap().command))
-        .collect();
+    let mut by_menu: HashMap<_, _> =
+        labelled.iter().zip(ACTIONS).map(|(item, a)| (item.id().clone(), a.command)).collect();
     by_menu.extend(plain.iter().map(|(item, c)| (item.id().clone(), *c)));
     by_menu.insert(autostart.id().clone(), Command::ToggleAutostart);
     let menu_tx = tx.clone();
@@ -183,15 +252,13 @@ pub fn install(tx: Sender<Command>, settings: &Settings) -> Result<(Resident, Ve
     }));
 
     let size = 32;
-    let tray = TrayIconBuilder::new()
+    let icon = TrayIconBuilder::new()
         .with_menu(Box::new(menu))
         .with_menu_on_left_click(false)
         .with_tooltip("Sukurin")
         .with_icon(Icon::from_rgba(logo(size, tray_inks()), size, size)?)
         .build()?;
-    let mut resident = Resident { _tray: tray, manager, routes, registered: Vec::new(), labelled };
-    let refused = resident.apply(settings);
-    Ok((resident, refused))
+    Ok(Built { _icon: icon, labelled })
 }
 
 
