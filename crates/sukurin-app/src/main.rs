@@ -4,6 +4,8 @@ mod app;
 mod autostart;
 mod capture;
 mod countdown;
+#[cfg(target_os = "linux")]
+mod identity;
 mod instance;
 mod overlay;
 mod library_window;
@@ -41,6 +43,13 @@ fn main() {
             return;
         }
     };
+    // Before anything talks to the desktop portal, which fixes a connection's
+    // app identity at first contact.
+    #[cfg(target_os = "linux")]
+    match identity::adopt() {
+        Ok(scope) => log::info!("running as {scope}"),
+        Err(e) => log::warn!("could not take Sukurin's own app identity: {e:#}; GNOME will attribute screenshots to the launcher"),
+    }
     let application = gpui_kit::application().with_assets(sukurin_editor::EditorAssets);
     // Linux maps every window, hidden or not, so a keep-alive window would sit
     // in the dock. Quitting only on request keeps Sukurin alive with none.
