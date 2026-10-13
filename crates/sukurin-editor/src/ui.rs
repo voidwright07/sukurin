@@ -260,7 +260,7 @@ impl Editor {
 
     fn ink_dots(&self, t: &Theme, inks: &[u32], cx: &mut Context<Self>) -> Div {
         let current = self.current_style().color;
-        let mut row = div().flex().flex_none().items_center().gap(px(6.));
+        let mut row = div().flex().flex_none().items_center();
         for (i, hex) in inks.iter().copied().enumerate() {
             let c = core(hex);
             let name = ANNOTATION_INK.iter().position(|h| *h == hex).map_or("Colour", |i| INK_NAMES[i]);
@@ -529,7 +529,7 @@ impl Editor {
             }
             Props::Backdrop => {
                 let current = self.doc.backdrop;
-                let mut dots = div().flex().flex_none().items_center().gap(px(6.));
+                let mut dots = div().flex().flex_none().items_center();
                 for (i, p) in BACKDROPS.iter().enumerate() {
                     let selected = match current {
                         None => i == 0,

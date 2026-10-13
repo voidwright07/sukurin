@@ -138,25 +138,18 @@ pub fn field_button(t: &Theme, id: impl Into<ElementId>, text: &'static str, key
 }
 
 pub fn dot(t: &Theme, id: impl Into<ElementId>, fill: impl Into<Fill>, selected: bool) -> Stateful<Div> {
-    let ring = t.text;
-    let gap = t.chrome;
-    let d = div().id(id).size(px(16.)).rounded_full().flex_none().bg(fill).border_1().border_color(rgba(0x7F7F7F59));
-    if selected {
-        div()
-            .id("ring")
-            .size(px(22.))
-            .m(px(-3.))
-            .rounded_full()
-            .border(px(1.5))
-            .border_color(ring)
-            .bg(gap)
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(d)
-    } else {
-        d
-    }
+    let d = div().size(px(16.)).rounded_full().flex_none().bg(fill).border_1().border_color(rgba(0x7F7F7F59));
+    div()
+        .id(id)
+        .size(px(22.))
+        .flex_none()
+        .rounded_full()
+        .border(px(1.5))
+        .border_color(if selected { t.text.into() } else { transparent_black() })
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(d)
 }
 
 /// The small switch with a label and optional key cap.
