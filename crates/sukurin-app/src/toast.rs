@@ -18,6 +18,8 @@ pub enum Content {
     Code { text: String },
     Nothing { reason: String },
     Saved { path: std::path::PathBuf },
+    /// A short notice: a title and a few wrapped lines.
+    Note { title: String, lines: Vec<String> },
 }
 
 #[derive(Clone)]
@@ -50,6 +52,7 @@ impl Toast {
             }
             Content::Code { .. } => 40. + 58. + 46.,
             Content::Nothing { .. } | Content::Saved { .. } => 44.,
+            Content::Note { lines, .. } => 44. + 18. * lines.len() as f32,
         }
     }
 
@@ -64,7 +67,7 @@ impl Toast {
             Content::Text { lines, .. } if self.joined => lines.join(" "),
             Content::Text { lines, .. } => lines.join("\n"),
             Content::Code { text } => text.clone(),
-            Content::Nothing { .. } | Content::Saved { .. } => String::new(),
+            Content::Nothing { .. } | Content::Saved { .. } | Content::Note { .. } => String::new(),
         }
     }
 
@@ -232,6 +235,15 @@ impl Render for Toast {
                     .child(icon(Icon::Text).text_color(T.text3))
                     .child(div().font_weight(FontWeight::SEMIBOLD).child("No text found"))
                     .child(div().flex_1().text_size(px(12.)).text_color(T.text3).overflow_hidden().text_ellipsis().whitespace_nowrap().child(reason)),
+            ),
+            Content::Note { title, lines } => shell.child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .px(px(14.))
+                    .py(px(12.))
+                    .child(div().h(px(20.)).flex().items_center().gap(px(8.)).child(icon(Icon::Screen).text_color(T.text2)).child(div().font_weight(FontWeight::SEMIBOLD).child(title)))
+                    .children(lines.into_iter().map(|l| div().text_size(px(12.)).line_height(px(18.)).text_color(T.text3).whitespace_nowrap().overflow_hidden().text_ellipsis().child(l))),
             ),
         }
     }

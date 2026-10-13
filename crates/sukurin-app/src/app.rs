@@ -382,7 +382,7 @@ impl EditorHost for Host {
                     log::info!("saved {}", path.display());
                     show_toast(Content::Saved { path }, &display, cx);
                 }
-                Err(e) => show_toast(Content::Nothing { reason: format!("Save failed: {e:#}") }, &display, cx),
+                Err(e) => show_toast(Content::Note { title: "Save failed".into(), lines: vec![format!("{e:#}")] }, &display, cx),
             });
         })
         .detach();
@@ -588,6 +588,7 @@ fn recognize_shot(shot: Shot, display: Display, cx: &mut App) {
                 Content::Code { text } => format!("code {text}"),
                 Content::Nothing { reason } => format!("nothing ({reason})"),
                 Content::Saved { path } => format!("saved {}", path.display()),
+                Content::Note { title, .. } => title.clone(),
             });
             let text = Toast::new(content.clone()).clipboard_text();
             if !text.is_empty() {
