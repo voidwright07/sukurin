@@ -152,9 +152,10 @@ fn randr_rects() -> Result<std::collections::HashMap<u32, RectPx>> {
 }
 
 /// xcap's own test for a Wayland session, which decides whether its scale
-/// factor lookup goes through libwayshot.
+/// factor lookup goes through libwayshot. Global shortcuts are X11 key grabs,
+/// so they do not fire in such a session either.
 #[cfg(target_os = "linux")]
-fn wayland() -> bool {
+pub fn wayland() -> bool {
     std::env::var("XDG_SESSION_TYPE").is_ok_and(|t| t == "wayland")
         || std::env::var("WAYLAND_DISPLAY").is_ok_and(|d| d.to_lowercase().contains("wayland"))
 }

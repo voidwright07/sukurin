@@ -165,10 +165,17 @@ impl Resident {
             }
         }
         *self.routes.lock().unwrap() = routes;
+        // Windows menus right-align what follows a tab; other menus draw it as
+        // a stray character. A Wayland session never fires the shortcuts.
+        #[cfg(target_os = "linux")]
+        let show_keys = !crate::capture::wayland();
+        #[cfg(not(target_os = "linux"))]
+        let show_keys = true;
+        let sep = if cfg!(windows) { "\t" } else { "   " };
         let labels = ACTIONS
             .iter()
-            .map(|a| match first.get(a.id) {
-                Some(k) => format!("{}\t{k}", a.label),
+            .map(|a| match first.get(a.id).filter(|_| show_keys) {
+                Some(k) => format!("{}{sep}{k}", a.label),
                 None => a.label.to_string(),
             })
             .collect();
@@ -223,7 +230,7 @@ fn build(tx: Sender<Command>) -> Result<Built> {
         (MenuItem::new("Open captures folder", true, None), Command::OpenFolder),
         (MenuItem::new("Quit Sukurin", true, None), Command::Quit),
     ];
-    let autostart = CheckMenuItem::new("Start with Windows", cfg!(windows), crate::autostart::is_enabled(), None);
+    let autostart = CheckMenuItem::new(if cfg!(windows) { "Start with Windows" } else { "Start at login" }, cfg!(windows), crate::autostart::is_enabled(), None);
     let menu = Menu::new();
     for item in &labelled {
         menu.append(item)?;
