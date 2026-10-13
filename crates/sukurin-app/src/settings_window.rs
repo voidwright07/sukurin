@@ -2,6 +2,8 @@
 //! keys; changes apply immediately and are saved.
 
 use crate::app::{self, Command};
+#[cfg(target_os = "linux")]
+use crate::screenshot_grant::{self, Grant};
 use crate::settings::Settings;
 use crate::shortcuts::{self, ACTIONS, RecordKey, SLOTS};
 use crate::system_keys;
@@ -21,6 +23,9 @@ pub struct SettingsWindow {
     notice: Option<(&'static str, String)>,
     /// Sukurin switched Snipping Tool off PrtSc from this window.
     released: bool,
+    /// What GNOME answered the screenshot permission request made from here.
+    #[cfg(target_os = "linux")]
+    grant: Grant,
     focus: FocusHandle,
 }
 
@@ -32,6 +37,8 @@ impl SettingsWindow {
             problems: HashMap::new(),
             notice: None,
             released: false,
+            #[cfg(target_os = "linux")]
+            grant: Grant::default(),
             focus: cx.focus_handle(),
         };
         cx.on_release(|this, cx| {
@@ -115,6 +122,16 @@ impl SettingsWindow {
             });
         })
         .detach();
+    }
+
+    #[cfg(target_os = "linux")]
+    fn ask_grant(&mut self, cx: &mut Context<Self>) {
+        self.grant = Grant::Asking;
+        cx.notify();
+        Grant::ask(cx, |this, grant, cx| {
+            this.grant = grant;
+            cx.notify();
+        });
     }
 
     fn chip(&self, id: &'static str, slot: usize, text: Option<String>, cx: &mut Context<Self>) -> impl IntoElement {
@@ -202,7 +219,7 @@ impl Render for SettingsWindow {
                     .map(|m| div().pl(px(2.)).pb(px(4.)).text_size(px(12.)).text_color(T.warn).child(m)),
             );
         }
-        div()
+        let root = div()
             .id("settings")
             .size_full()
             .flex()
@@ -245,8 +262,12 @@ impl Render for SettingsWindow {
                     ),
                 )
             })
-            .when(self.released, |d| d.child(div().text_size(px(12.)).text_color(T.text2).child(system_keys::SIGN_OUT_HINT)))
-            .child(div().flex_1())
+            .when(self.released, |d| d.child(div().text_size(px(12.)).text_color(T.text2).child(system_keys::SIGN_OUT_HINT)));
+        #[cfg(target_os = "linux")]
+        let root = root.when(crate::capture::wayland(), |d| {
+            d.child(screenshot_grant::section(self.grant, cx.listener(|this, _, _, cx| this.ask_grant(cx))))
+        });
+        root.child(div().flex_1())
             .child(
                 div()
                     .flex()

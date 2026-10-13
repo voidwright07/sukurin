@@ -12,6 +12,8 @@ mod library_window;
 mod onboarding;
 mod pin;
 mod recognize;
+#[cfg(target_os = "linux")]
+mod screenshot_grant;
 mod scroll;
 mod settings;
 mod settings_window;

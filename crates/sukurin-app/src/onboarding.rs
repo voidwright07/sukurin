@@ -5,6 +5,8 @@
 use crate::app::{self, Command};
 use crate::autostart;
 use crate::overlay::Mode;
+#[cfg(target_os = "linux")]
+use crate::screenshot_grant::{self, Grant};
 use crate::settings::{AiChat, Settings};
 use crate::shortcuts::{self, ACTIONS, RecordKey};
 use crate::system_keys;
@@ -54,6 +56,9 @@ pub struct Onboarding {
     snipping: bool,
     /// Sukurin switched Snipping Tool off PrtSc from this window.
     released: bool,
+    /// What GNOME answered the screenshot permission request made from here.
+    #[cfg(target_os = "linux")]
+    grant: Grant,
     focus: FocusHandle,
 }
 
@@ -69,6 +74,8 @@ impl Onboarding {
             presets: HashMap::new(),
             snipping: false,
             released: false,
+            #[cfg(target_os = "linux")]
+            grant: Grant::default(),
             focus: cx.focus_handle(),
         };
         cx.on_release(|this, cx| {
@@ -383,7 +390,26 @@ impl Onboarding {
         }))
     }
 
+    #[cfg(target_os = "linux")]
+    fn ask_grant(&mut self, cx: &mut Context<Self>) {
+        self.grant = Grant::Asking;
+        cx.notify();
+        Grant::ask(cx, |this, grant, cx| {
+            this.grant = grant;
+            cx.notify();
+        });
+    }
+
     fn ready_step(&self, cx: &mut Context<Self>) -> Div {
+        let body = self.ready_body(cx);
+        #[cfg(target_os = "linux")]
+        let body = body.when(crate::capture::wayland(), |d| {
+            d.child(screenshot_grant::section(self.grant, cx.listener(|this, _, _, cx| this.ask_grant(cx))))
+        });
+        body
+    }
+
+    fn ready_body(&self, cx: &mut Context<Self>) -> Div {
         let Some(key) = self.active(CAPTURE) else {
             let why = match self.selected().and_then(|s| self.problems.get(&(CAPTURE, s.clone())).map(|p| (s, p.message()))) {
                 Some((s, p)) => format!("{s}: {p}. Go back and pick another, or capture from the tray icon."),
