@@ -292,7 +292,7 @@ fn portal_capture(mode: Mode, cursor: sukurin_core::PointPx, started: Instant, c
                 });
                 return;
             }
-            Ok(None) => "cancelled".to_string(),
+            Ok(None) => "GNOME returned no screenshot".to_string(),
             Err(e) => format!("{e:#}"),
         };
         log::warn!("silent screenshot refused ({refused}); using GNOME's picker");
@@ -313,7 +313,7 @@ fn portal_capture(mode: Mode, cursor: sukurin_core::PointPx, started: Instant, c
                         }
                     }
                 }
-                Ok(None) => log::info!("picker cancelled"),
+                Ok(None) => log::info!("picker returned no screenshot (cancelled, or GNOME kept it)"),
                 Err(e) => {
                     log::error!("capture failed: {e:#}");
                     show_toast(Content::Note { title: "Capture failed".into(), lines: vec![format!("{e:#}")] }, &display, cx);
@@ -326,7 +326,8 @@ fn portal_capture(mode: Mode, cursor: sukurin_core::PointPx, started: Instant, c
 }
 
 /// Once per run: how to get Sukurin's own overlay back, shown while GNOME's
-/// picker takes the capture instead.
+/// picker takes the capture instead. GNOME asks for the permission only from a
+/// focused window of the app, so the hint sends people to Settings.
 #[cfg(target_os = "linux")]
 fn permission_hint(display: &Display, cx: &mut App) {
     static SHOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -338,8 +339,8 @@ fn permission_hint(display: &Display, cx: &mut App) {
         Content::Note {
             title: "GNOME's picker is taking this one".into(),
             lines: vec![
-                "Sukurin's own overlay needs permission to take screenshots.".into(),
-                "Choose Allow when GNOME asks.".into(),
+                "Sukurin's own overlay needs GNOME's permission to take screenshots.".into(),
+                "Open Settings from the tray and choose Allow screenshots.".into(),
             ],
         },
         display,

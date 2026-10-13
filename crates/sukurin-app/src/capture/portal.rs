@@ -4,7 +4,6 @@
 //! interactive one runs GNOME's own picker and needs no permission.
 
 use anyhow::{Context as _, Result, anyhow};
-use ashpd::desktop::ResponseError;
 use ashpd::desktop::screenshot::Screenshot;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -12,7 +11,8 @@ use sukurin_core::Bitmap;
 
 /// One portal request. The future resolves when the portal answers, so a
 /// permission dialog or the picker is waited out inside it: run it off the
-/// main thread. `None` means the user cancelled.
+/// main thread. `None` means the portal handed back no screenshot: the user
+/// cancelled, GNOME refused a silent one, or its picker returned nothing.
 pub async fn screenshot(interactive: bool) -> Result<Option<Bitmap>> {
     let asked = SystemTime::now();
     let request = Screenshot::request()
@@ -23,7 +23,10 @@ pub async fn screenshot(interactive: bool) -> Result<Option<Bitmap>> {
         .with_context(|| format!("portal screenshot (interactive {interactive})"))?;
     let shot = match request.response() {
         Ok(shot) => shot,
-        Err(ashpd::Error::Response(ResponseError::Cancelled)) => return Ok(None),
+        Err(ashpd::Error::Response(why)) => {
+            log::info!("portal screenshot (interactive {interactive}) returned nothing: {why}");
+            return Ok(None);
+        }
         Err(e) => return Err(anyhow!("portal screenshot (interactive {interactive}): {e}")),
     };
     let path = file_path(shot.uri().as_str())?;
