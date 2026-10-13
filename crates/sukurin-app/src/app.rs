@@ -57,6 +57,9 @@ impl Card {
 
 pub struct Sukurin {
     capturer: Capturer,
+    /// A portal request is out: a dialog or GNOME's picker may be up.
+    #[cfg(target_os = "linux")]
+    portal_pending: bool,
     last_area: Option<RectPx>,
     overlay: Option<(AnyWindowHandle, Entity<Overlay>)>,
     corner: Option<(AnyWindowHandle, Card)>,
@@ -83,7 +86,19 @@ impl Global for Sukurin {}
 
 pub fn install(cx: &mut App) -> Result<()> {
     let capturer = Capturer::new().context("starting screen capture")?;
-    cx.set_global(Sukurin { capturer, last_area: None, overlay: None, corner: None, scrolling: None, library: open_library(), library_window: None, settings_window: None, onboarding_window: None });
+    cx.set_global(Sukurin {
+        capturer,
+        #[cfg(target_os = "linux")]
+        portal_pending: false,
+        last_area: None,
+        overlay: None,
+        corner: None,
+        scrolling: None,
+        library: open_library(),
+        library_window: None,
+        settings_window: None,
+        onboarding_window: None,
+    });
     Ok(())
 }
 
@@ -236,11 +251,106 @@ fn begin_capture(mode: Mode, cx: &mut App) -> Result<()> {
     }
     let t = Instant::now();
     let cursor = capture::cursor_position();
-    let (frame, last_area) = cx.update_global(|s: &mut Sukurin, _| -> Result<(Frame, Option<RectPx>)> {
+    #[cfg(target_os = "linux")]
+    if capture::wayland() {
+        return portal_capture(mode, cursor, t, cx);
+    }
+    let frame = cx.update_global(|s: &mut Sukurin, _| -> Result<Frame> {
         let d = s.capturer.display_at(cursor).context("no display")?;
-        Ok((s.capturer.grab(&d)?, s.last_area))
+        s.capturer.grab(&d)
     })?;
+    open_overlay(frame, cursor, mode, t, cx)
+}
+
+/// On Wayland the portal grabs silently when GNOME has the permission
+/// stored, and Sukurin's overlay opens on that frame. Otherwise GNOME's own
+/// picker takes over and what it returns goes straight to the thumbnail.
+/// Both requests wait off the main thread, so the tray stays responsive.
+#[cfg(target_os = "linux")]
+fn portal_capture(mode: Mode, cursor: sukurin_core::PointPx, started: Instant, cx: &mut App) -> Result<()> {
+    use crate::capture::portal;
+    let s = cx.global_mut::<Sukurin>();
+    if s.portal_pending {
+        log::info!("capture skipped: a portal request is already waiting");
+        return Ok(());
+    }
+    let display = s.capturer.display_at(cursor).context("no display")?;
+    s.portal_pending = true;
+    cx.spawn(async move |cx| {
+        let silent = cx.background_executor().spawn(portal::screenshot(false)).await;
+        let refused = match silent {
+            Ok(Some(desktop)) => {
+                cx.update(|cx| {
+                    cx.global_mut::<Sukurin>().portal_pending = false;
+                    let taken_at = std::time::SystemTime::now();
+                    let opened = capture::display_part(desktop, &display)
+                        .and_then(|bitmap| open_overlay(Frame { display: display.clone(), bitmap, taken_at }, cursor, mode, started, cx));
+                    if let Err(e) = opened {
+                        log::error!("capture failed: {e:#}");
+                        show_toast(Content::Note { title: "Capture failed".into(), lines: vec![format!("{e:#}")] }, &display, cx);
+                    }
+                });
+                return;
+            }
+            Ok(None) => "cancelled".to_string(),
+            Err(e) => format!("{e:#}"),
+        };
+        log::warn!("silent screenshot refused ({refused}); using GNOME's picker");
+        cx.update(|cx| permission_hint(&display, cx));
+        let picked = cx.background_executor().spawn(portal::screenshot(true)).await;
+        cx.update(|cx| {
+            cx.global_mut::<Sukurin>().portal_pending = false;
+            match picked {
+                Ok(Some(bitmap)) => {
+                    let (w, h) = (bitmap.width(), bitmap.height());
+                    log::info!("picker to thumbnail: {w}x{h} px in {:.1} ms", ms(started.elapsed()));
+                    let shot = Shot { bitmap, scale: display.scale, source_rect: RectPx::new(display.rect.x, display.rect.y, w, h), taken_at: std::time::SystemTime::now() };
+                    match mode {
+                        Mode::Text => recognize_shot(shot, display, cx),
+                        _ => {
+                            copy_to_clipboard(&shot);
+                            show_thumbnail(shot, &display, cx);
+                        }
+                    }
+                }
+                Ok(None) => log::info!("picker cancelled"),
+                Err(e) => {
+                    log::error!("capture failed: {e:#}");
+                    show_toast(Content::Note { title: "Capture failed".into(), lines: vec![format!("{e:#}")] }, &display, cx);
+                }
+            }
+        });
+    })
+    .detach();
+    Ok(())
+}
+
+/// Once per run: how to get Sukurin's own overlay back, shown while GNOME's
+/// picker takes the capture instead.
+#[cfg(target_os = "linux")]
+fn permission_hint(display: &Display, cx: &mut App) {
+    static SHOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if SHOWN.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    log::info!("showing the screenshot permission hint");
+    show_toast(
+        Content::Note {
+            title: "GNOME's picker is taking this one".into(),
+            lines: vec![
+                "Sukurin's own overlay needs permission to take screenshots.".into(),
+                "Choose Allow when GNOME asks, or turn on Screenshots".into(),
+                "for Sukurin under Settings > Apps.".into(),
+            ],
+        },
+        display,
+        cx,
+    );
+}
+
+fn open_overlay(frame: Frame, cursor: sukurin_core::PointPx, mode: Mode, t: Instant, cx: &mut App) -> Result<()> {
     let grabbed = t.elapsed();
+    let last_area = cx.global::<Sukurin>().last_area;
     let windows = capture::snap_windows();
     let (bounds, display_id) = gpui_display(&frame.display, cx);
     // Wayland ignores a window's requested position, so on Linux the overlay

@@ -35,6 +35,8 @@ winresource = "0.1"
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
 xcb = { version = "1.7", features = ["randr"] }
+ashpd = { version = "0.13", default-features = false, features = ["async-io", "screenshot"] }
+url = "2"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [

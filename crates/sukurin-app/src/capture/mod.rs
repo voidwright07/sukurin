@@ -7,6 +7,8 @@ mod dxgi;
 mod hdr;
 #[cfg(windows)]
 mod win_windows;
+#[cfg(target_os = "linux")]
+pub mod portal;
 
 use anyhow::{Result, anyhow};
 #[cfg(not(windows))]
@@ -114,20 +116,28 @@ impl Capturer {
                 .iter()
                 .find(|(d, _)| d.rect == display.rect)
                 .ok_or_else(|| anyhow!("display {} went away", display.name))?;
-            // Without a GNOME or portal screenshot service xcap falls back to
-            // libwayshot, which panics on compositors lacking the wlroots
-            // protocols. Unwinding through GPUI's Wayland dispatch then takes
-            // the process down, so the panic is contained here.
+            // On Wayland the caller has already taken one silent portal grab
+            // to open the overlay, so the permission is stored and this
+            // does not wait on a dialog.
             #[cfg(target_os = "linux")]
-            let img = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| m.capture_image()))
-                .map_err(|_| anyhow!("the screen capture backend panicked; see the log above"))??;
-            #[cfg(not(target_os = "linux"))]
+            if wayland() {
+                let desktop = smol::block_on(portal::screenshot(false))?.ok_or_else(|| anyhow!("screenshot cancelled"))?;
+                return Ok(Frame { display: display.clone(), bitmap: display_part(desktop, display)?, taken_at: SystemTime::now() });
+            }
             let img = m.capture_image()?;
             let (w, h) = img.dimensions();
             Bitmap::from_rgba(w, h, img.into_raw())
         };
         Ok(Frame { display: display.clone(), bitmap, taken_at: SystemTime::now() })
     }
+}
+
+/// The display's part of a whole-desktop portal screenshot.
+#[cfg(target_os = "linux")]
+pub fn display_part(desktop: Bitmap, display: &Display) -> Result<Bitmap> {
+    desktop.crop(display.rect).ok_or_else(|| {
+        anyhow!("display {} at {:?} is outside the {}x{} portal screenshot", display.name, display.rect, desktop.width(), desktop.height())
+    })
 }
 
 /// Monitor rectangles in physical pixels, keyed by RandR output id. xcap's
