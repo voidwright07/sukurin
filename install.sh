@@ -126,8 +126,13 @@ append_unique() {
 	esac
 }
 
-check_libraries() {
-	missing=$(ldd "$1" 2>/dev/null | awk '/not found/ { s = s (s ? " " : "") $1 } END { print s }')
+# Libraries the binary links against and cannot start without.
+unresolved() {
+	ldd "$1" 2>/dev/null | awk '/not found/ { s = s (s ? " " : "") $1 } END { print s }'
+}
+
+missing_libraries() {
+	missing=$(unresolved "$1")
 	# The tray icon and the GPU renderer are loaded with dlopen, so ldd cannot see them.
 	cache=$(ldconfig_cache)
 	if [ -n "$cache" ]; then
@@ -136,12 +141,16 @@ check_libraries() {
 		printf '%s\n' "$cache" | grep -q 'libvulkan\.so\.1' ||
 			missing=$(append_unique "$missing" libvulkan.so.1)
 	fi
-	[ -n "$missing" ] || return 0
+	echo "$missing"
+}
 
+# Installs the packages behind $1 with the system package manager after asking
+# on the terminal; prints the commands instead when it cannot ask or it fails.
+offer_install() {
 	apt=''
 	dnf=''
 	pacman=''
-	for lib in $missing; do
+	for lib in $1; do
 		# shellcheck disable=SC2046
 		set -- $(packages_for "$lib")
 		[ $# -eq 3 ] || continue
@@ -149,13 +158,36 @@ check_libraries() {
 		dnf=$(append_unique "$dnf" "$2")
 		pacman=$(append_unique "$pacman" "$3")
 	done
-	say "missing system libraries: $missing"
-	if [ -n "$apt" ]; then
-		say "install them with one of:"
-		printf '  Debian/Ubuntu: sudo apt install %s\n' "$apt"
-		printf '  Fedora:        sudo dnf install %s\n' "$dnf"
-		printf '  Arch:          sudo pacman -S %s\n' "$pacman"
+	[ -n "$apt" ] || return 1
+
+	if command -v apt-get >/dev/null 2>&1; then
+		cmd="apt-get install -y $apt"
+	elif command -v dnf >/dev/null 2>&1; then
+		cmd="dnf install -y $dnf"
+	elif command -v pacman >/dev/null 2>&1; then
+		cmd="pacman -S --needed --noconfirm $pacman"
+	else
+		cmd=''
 	fi
+	sudo=''
+	[ "$(id -u)" -eq 0 ] || sudo='sudo '
+	# curl | sh leaves stdin on the pipe, so the question goes through the terminal.
+	if [ -n "$cmd" ] && [ -z "${SUKURIN_NO_SUDO:-}" ] && (: </dev/tty) 2>/dev/null; then
+		printf 'sukurin: install them now with "%s%s"? [Y/n] ' "$sudo" "$cmd" >/dev/tty
+		read -r answer </dev/tty || answer=n
+		case $answer in
+		'' | y | Y | yes | YES)
+			# shellcheck disable=SC2086
+			if $sudo $cmd </dev/tty; then return 0; fi
+			say "the package install failed"
+			;;
+		esac
+	fi
+	say "install them with one of:"
+	printf '  Debian/Ubuntu: sudo apt install %s\n' "$apt"
+	printf '  Fedora:        sudo dnf install %s\n' "$dnf"
+	printf '  Arch:          sudo pacman -S %s\n' "$pacman"
+	return 1
 }
 
 install_linux() {
@@ -171,13 +203,20 @@ install_linux() {
 	update-desktop-database "$appdir" >/dev/null 2>&1 || true
 	gtk-update-icon-cache -q -t "$HOME/.local/share/icons/hicolor" >/dev/null 2>&1 || true
 
-	check_libraries "$bindir/sukurin"
+	missing=$(missing_libraries "$bindir/sukurin")
+	if [ -n "$missing" ]; then
+		say "missing system libraries: $missing"
+		offer_install "$missing" || true
+	fi
 	case ":$PATH:" in
 	*":$bindir:"*) ;;
 	*) say "warning: $bindir is not on your PATH; add it to run sukurin from a terminal" ;;
 	esac
 
-	if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+	blocking=$(unresolved "$bindir/sukurin")
+	if [ -n "$blocking" ]; then
+		say "installed, but Sukurin cannot start until $blocking is installed (see above)."
+	elif [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
 		nohup "$bindir/sukurin" >/dev/null 2>&1 &
 		say "Sukurin is running in the system tray."
 	else
