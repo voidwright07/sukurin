@@ -339,8 +339,7 @@ fn permission_hint(display: &Display, cx: &mut App) {
             title: "GNOME's picker is taking this one".into(),
             lines: vec![
                 "Sukurin's own overlay needs permission to take screenshots.".into(),
-                "Choose Allow when GNOME asks, or turn on Screenshots".into(),
-                "for Sukurin under Settings > Apps.".into(),
+                "Choose Allow when GNOME asks.".into(),
             ],
         },
         display,

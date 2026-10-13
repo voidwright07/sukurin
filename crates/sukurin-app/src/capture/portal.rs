@@ -28,12 +28,15 @@ pub async fn screenshot(interactive: bool) -> Result<Option<Bitmap>> {
     };
     let path = file_path(shot.uri().as_str())?;
     let img = image::open(&path).with_context(|| format!("reading {}", path.display()))?.to_rgba8();
-    // GNOME writes the file where the user keeps pictures. It is ours only if
-    // it appeared for this request, so an older file by the same name stays.
+    // A silent request leaves GNOME's working file where the user keeps
+    // pictures; it is ours only if it appeared for this request. What the
+    // picker returns may be a screenshot GNOME saved for the user, so it stays.
     let fresh = std::fs::metadata(&path)
         .and_then(|m| m.modified())
         .is_ok_and(|t| t + Duration::from_secs(2) >= asked);
-    if fresh {
+    if interactive {
+        log::debug!("picker screenshot left in place: {}", path.display());
+    } else if fresh {
         match std::fs::remove_file(&path) {
             Ok(()) => log::debug!("removed portal screenshot {}", path.display()),
             Err(e) => log::warn!("could not remove portal screenshot {}: {e}", path.display()),
