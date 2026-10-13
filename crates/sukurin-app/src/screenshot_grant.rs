@@ -46,7 +46,7 @@ pub fn section(grant: Grant, on_click: impl Fn(&ClickEvent, &mut Window, &mut Ap
     let status = match grant {
         Grant::Granted => Some(("Screenshots allowed. Captures from the tray now open Sukurin's overlay.", T.text2)),
         Grant::Refused => Some((
-            "GNOME did not allow it. Keep this window in front and try again, or turn on Screenshots for Sukurin under GNOME Settings, Apps.",
+            "GNOME did not allow it. Keep this window in front and try again.",
             T.warn,
         )),
         Grant::Unasked | Grant::Asking => None,
