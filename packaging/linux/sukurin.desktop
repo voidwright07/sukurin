@@ -5,6 +5,7 @@ GenericName=Screenshot Tool
 Comment=Capture, inspect, measure and annotate screenshots
 Exec=sukurin
 Icon=sukurin
+StartupWMClass=sukurin
 Terminal=false
 Categories=Graphics;Utility;
 Keywords=screenshot;capture;annotate;

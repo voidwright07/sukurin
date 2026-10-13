@@ -4,6 +4,7 @@ mod app;
 mod autostart;
 mod capture;
 mod countdown;
+mod instance;
 mod overlay;
 mod library_window;
 mod onboarding;
@@ -21,8 +22,10 @@ mod tray;
 
 use gpui_kit::*;
 
+#[cfg(not(target_os = "linux"))]
 struct Idle;
 
+#[cfg(not(target_os = "linux"))]
 impl Render for Idle {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         div()
@@ -31,26 +34,36 @@ impl Render for Idle {
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    if !single_instance() {
-        log::info!("Sukurin is already running");
-        return;
-    }
-    gpui_kit::application().with_assets(sukurin_editor::EditorAssets).run(|cx| {
+    let listener = match instance::claim() {
+        instance::Claim::First(listener) => listener,
+        instance::Claim::Forwarded => {
+            log::info!("Sukurin is already running");
+            return;
+        }
+    };
+    let application = gpui_kit::application().with_assets(sukurin_editor::EditorAssets);
+    // Linux maps every window, hidden or not, so a keep-alive window would sit
+    // in the dock. Quitting only on request keeps Sukurin alive with none.
+    #[cfg(target_os = "linux")]
+    let application = application.with_quit_mode(QuitMode::Explicit);
+    application.run(move |cx| {
         gpui_kit::init(cx);
-        if let Err(e) = start(cx) {
+        if let Err(e) = start(cx, listener) {
             log::error!("{e:#}");
             cx.quit();
         }
     });
 }
 
-fn start(cx: &mut App) -> anyhow::Result<()> {
+fn start(cx: &mut App, listener: instance::Listener) -> anyhow::Result<()> {
     gpui_kit::component::Theme::change(gpui_kit::component::ThemeMode::Dark, None, cx);
     app::install(cx)?;
     // GPUI quits when its last window closes; Sukurin lives in the tray, so
     // one invisible window keeps the app alive between captures.
+    #[cfg(not(target_os = "linux"))]
     open_window(
         WindowOptions {
+            app_id: Some(sukurin_ui::APP_ID.into()),
             show: false,
             focus: false,
             kind: WindowKind::PopUp,
@@ -64,13 +77,15 @@ fn start(cx: &mut App) -> anyhow::Result<()> {
         },
     )?;
     let (tx, rx) = smol::channel::unbounded();
-    if std::env::args().any(|a| a == "--library") {
-        let _ = tx.try_send(app::Command::OpenLibrary);
-    }
     let settings = settings::Settings::load();
-    if !settings.onboarded || std::env::args().any(|a| a == "--onboarding") {
-        let _ = tx.try_send(app::Command::OpenOnboarding);
+    let mut requests = instance::requests(std::env::args().skip(1));
+    if !settings.onboarded && !requests.iter().any(|c| matches!(c, app::Command::OpenOnboarding)) {
+        requests.push(app::Command::OpenOnboarding);
     }
+    for cmd in requests {
+        let _ = tx.try_send(cmd);
+    }
+    instance::serve(listener, tx.clone());
     let (resident, refused) = tray::install(tx, &settings)?;
     for r in refused {
         log::warn!("{} shortcut {} not active: {}", r.action, r.shortcut, r.problem.message());
@@ -103,24 +118,5 @@ fn consume_startup_show_state(window: &Window) {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 fn consume_startup_show_state(_: &Window) {}
-
-#[cfg(windows)]
-fn single_instance() -> bool {
-    use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, GetLastError};
-    use windows::Win32::System::Threading::CreateMutexW;
-    use windows::core::w;
-    unsafe {
-        let handle = CreateMutexW(None, true, w!("Local\\SukurinSingleInstance"));
-        let first = handle.is_ok() && GetLastError() != ERROR_ALREADY_EXISTS;
-        // The mutex must outlive the process, so its handle is leaked on purpose.
-        std::mem::forget(handle);
-        first
-    }
-}
-
-#[cfg(not(windows))]
-fn single_instance() -> bool {
-    true
-}

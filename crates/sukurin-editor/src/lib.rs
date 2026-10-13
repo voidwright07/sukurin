@@ -51,6 +51,7 @@ pub fn open_editor(shot: Shot, host: Rc<dyn EditorHost>, cx: &mut App) -> Result
     );
     let title: SharedString = editor::capture_name(&shot).into();
     let options = WindowOptions {
+        app_id: Some(sukurin_ui::APP_ID.into()),
         window_bounds: Some(WindowBounds::Windowed(bounds)),
         titlebar: Some(TitlebarOptions {
             title: Some(title),

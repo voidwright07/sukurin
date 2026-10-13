@@ -155,6 +155,7 @@ fn open_library_window(cx: &mut App) {
         return;
     };
     let opts = WindowOptions {
+        app_id: Some(sukurin_ui::APP_ID.into()),
         window_bounds: Some(WindowBounds::centered(size(px(1180.), px(780.)), cx)),
         titlebar: Some(TitlebarOptions { title: Some("Sukurin Library".into()), ..Default::default() }),
         focus: true,
@@ -242,8 +243,15 @@ fn begin_capture(mode: Mode, cx: &mut App) -> Result<()> {
     let grabbed = t.elapsed();
     let windows = capture::snap_windows();
     let (bounds, display_id) = gpui_display(&frame.display, cx);
+    // Wayland ignores a window's requested position, so on Linux the overlay
+    // asks to be fullscreen to sit exactly over the frozen frame.
+    #[cfg(target_os = "linux")]
+    let window_bounds = WindowBounds::Fullscreen(bounds);
+    #[cfg(not(target_os = "linux"))]
+    let window_bounds = WindowBounds::Windowed(bounds);
     let opts = WindowOptions {
-        window_bounds: Some(WindowBounds::Windowed(bounds)),
+        app_id: Some(sukurin_ui::APP_ID.into()),
+        window_bounds: Some(window_bounds),
         titlebar: None,
         kind: WindowKind::PopUp,
         focus: true,
@@ -259,6 +267,10 @@ fn begin_capture(mode: Mode, cx: &mut App) -> Result<()> {
         let focus = overlay.read(cx).focus_handle().clone();
         window.focus(&focus, cx);
         window.activate_window();
+        #[cfg(target_os = "linux")]
+        if !window.is_fullscreen() {
+            window.toggle_fullscreen();
+        }
         window.on_next_frame(move |_, cx| {
             log::info!("hotkey to overlay: grab {:.1} ms, first frame {:.1} ms", ms(grabbed), ms(t.elapsed()));
             cx.global_mut::<Sukurin>().capturer.trim();
@@ -404,6 +416,7 @@ fn delayed_capture(display: Display, cx: &mut App) {
     let (bounds, display_id) = gpui_display(&display, cx);
     let s = countdown::SIZE;
     let opts = WindowOptions {
+        app_id: Some(sukurin_ui::APP_ID.into()),
         window_bounds: Some(WindowBounds::Windowed(Bounds::new(
             point(bounds.center().x - px(s / 2.), bounds.center().y - px(s / 2.)),
             size(px(s), px(s)),
@@ -484,6 +497,7 @@ fn open_card<V: Render>(
     let visible = display_id.and_then(|id| cx.find_display(id)).map(|d| d.visible_bounds()).unwrap_or(fallback);
     let origin = point(visible.right() - px(w + 16.), visible.bottom() - px(h + 16.));
     let opts = WindowOptions {
+        app_id: Some(sukurin_ui::APP_ID.into()),
         window_bounds: Some(WindowBounds::Windowed(Bounds::new(origin, size(px(w), px(h))))),
         titlebar: None,
         kind: WindowKind::PopUp,
@@ -614,6 +628,7 @@ fn start_scrolling(first: Shot, display: Display, cx: &mut App) {
     };
     let y = ry.clamp(screen.top().as_f32() + 12., screen.bottom().as_f32() - scroll::HEIGHT - 12.);
     let opts = WindowOptions {
+        app_id: Some(sukurin_ui::APP_ID.into()),
         window_bounds: Some(WindowBounds::Windowed(Bounds::new(point(px(x), px(y)), size(px(scroll::WIDTH), px(scroll::HEIGHT))))),
         titlebar: None,
         kind: WindowKind::PopUp,
@@ -891,6 +906,7 @@ fn open_pin(shot: Shot, cx: &mut App) {
         px(shot.source_rect.y as f32 / shot.scale),
     );
     let opts = WindowOptions {
+        app_id: Some(sukurin_ui::APP_ID.into()),
         window_bounds: Some(WindowBounds::Windowed(Bounds::new(origin, natural))),
         titlebar: None,
         kind: WindowKind::PopUp,
@@ -998,6 +1014,7 @@ fn open_settings_window(cx: &mut App) {
         return;
     }
     let opts = WindowOptions {
+        app_id: Some(sukurin_ui::APP_ID.into()),
         window_bounds: Some(WindowBounds::centered(size(px(720.), px(470.)), cx)),
         titlebar: Some(TitlebarOptions { title: Some("Sukurin Settings".into()), ..Default::default() }),
         focus: true,
@@ -1023,6 +1040,7 @@ fn open_onboarding_window(cx: &mut App) {
         return;
     }
     let opts = WindowOptions {
+        app_id: Some(sukurin_ui::APP_ID.into()),
         window_bounds: Some(WindowBounds::centered(size(px(640.), px(500.)), cx)),
         titlebar: Some(TitlebarOptions { title: Some("Welcome to Sukurin".into()), ..Default::default() }),
         focus: true,
