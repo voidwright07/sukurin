@@ -281,7 +281,10 @@ fn portal_capture(mode: Mode, cursor: sukurin_core::PointPx, started: Instant, c
         let refused = match silent {
             Ok(Some(desktop)) => {
                 cx.update(|cx| {
-                    cx.global_mut::<Sukurin>().portal_pending = false;
+                    let s = cx.global_mut::<Sukurin>();
+                    s.portal_pending = false;
+                    s.capturer.refresh_layout();
+                    let display = s.capturer.display_at(cursor).unwrap_or(display);
                     let taken_at = std::time::SystemTime::now();
                     log::debug!("portal screenshot {}x{} px; cropping to {} {:?}", desktop.width(), desktop.height(), display.name, display.rect);
                     if let Ok(dir) = std::env::var("SUKURIN_DUMP_FRAME") {

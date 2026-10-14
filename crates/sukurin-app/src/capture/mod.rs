@@ -8,6 +8,8 @@ mod hdr;
 #[cfg(windows)]
 mod win_windows;
 #[cfg(target_os = "linux")]
+mod display_config;
+#[cfg(target_os = "linux")]
 pub mod portal;
 
 use anyhow::{Result, anyhow};
@@ -28,6 +30,10 @@ pub struct Capturer {
     outputs: Vec<dxgi::Output>,
     #[cfg(not(windows))]
     monitors: Vec<(Display, xcap::Monitor)>,
+    /// On Wayland the layout GNOME reports, in portal screenshot pixels; the
+    /// RandR rectangles behind `monitors` are Xwayland's integer-scaled view.
+    #[cfg(target_os = "linux")]
+    wayland: Vec<Display>,
 }
 
 impl Capturer {
@@ -64,13 +70,41 @@ impl Capturer {
                     (Display { rect, scale, name }, m)
                 })
                 .collect();
-            Ok(Self { monitors })
+            #[cfg(target_os = "linux")]
+            let mut this = Self { monitors, wayland: Vec::new() };
+            #[cfg(not(target_os = "linux"))]
+            let this = Self { monitors };
+            #[cfg(target_os = "linux")]
+            this.refresh_layout();
+            Ok(this)
+        }
+    }
+
+    /// Re-reads GNOME's monitor layout, which can change between captures.
+    /// Falls back to the RandR rectangles when GNOME does not answer.
+    #[cfg(target_os = "linux")]
+    pub fn refresh_layout(&mut self) {
+        if !wayland() {
+            return;
+        }
+        match smol::block_on(display_config::displays()) {
+            Ok(displays) => {
+                for d in &displays {
+                    log::debug!("GNOME display {}: {:?} at scale {}", d.name, d.rect, d.scale);
+                }
+                self.wayland = displays;
+            }
+            Err(e) => log::warn!("monitor layout from GNOME unavailable, using RandR: {e:#}"),
         }
     }
 
     pub fn displays(&self) -> Vec<Display> {
         #[cfg(windows)]
         return self.outputs.iter().map(|o| o.display.clone()).collect();
+        #[cfg(target_os = "linux")]
+        if !self.wayland.is_empty() {
+            return self.wayland.clone();
+        }
         #[cfg(not(windows))]
         return self.monitors.iter().map(|(d, _)| d.clone()).collect();
     }
@@ -111,11 +145,6 @@ impl Capturer {
         };
         #[cfg(not(windows))]
         let bitmap = {
-            let (_, m) = self
-                .monitors
-                .iter()
-                .find(|(d, _)| d.rect == display.rect)
-                .ok_or_else(|| anyhow!("display {} went away", display.name))?;
             // On Wayland the caller has already taken one silent portal grab
             // to open the overlay, so the permission is stored and this
             // does not wait on a dialog.
@@ -124,6 +153,11 @@ impl Capturer {
                 let desktop = smol::block_on(portal::screenshot(false))?.ok_or_else(|| anyhow!("screenshot cancelled"))?;
                 return Ok(Frame { display: display.clone(), bitmap: display_part(desktop, display)?, taken_at: SystemTime::now() });
             }
+            let (_, m) = self
+                .monitors
+                .iter()
+                .find(|(d, _)| d.rect == display.rect)
+                .ok_or_else(|| anyhow!("display {} went away", display.name))?;
             let img = m.capture_image()?;
             let (w, h) = img.dimensions();
             Bitmap::from_rgba(w, h, img.into_raw())
