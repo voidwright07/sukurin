@@ -165,28 +165,47 @@ impl Overlay {
         cx: &mut Context<Self>,
     ) -> Self {
         let origin = frame.display.rect;
-        let bounds = frame.bitmap.bounds();
-        let to_frame = |r: RectPx| r.translate(-origin.x, -origin.y).intersect(&bounds);
-        let windows = windows
-            .into_iter()
-            .filter_map(|w| Some(SnapWindow { rect: to_frame(w.rect)?, title: w.title }))
-            .collect();
-        let last_area = last_area.and_then(to_frame);
         let image = sukurin_ui::render_image(&frame.bitmap);
         let mut this = Self {
             frame,
             image,
-            windows,
+            windows: Vec::new(),
             mode: Mode::Area,
             gesture: Gesture::Idle,
             cursor: PointPx::new(cursor.x - origin.x, cursor.y - origin.y),
-            last_area,
+            last_area: None,
             focus: cx.focus_handle(),
             copied: None,
             loupe: false,
         };
+        this.place(windows, last_area);
         this.set_mode(mode, cx);
         this
+    }
+
+    /// Switches to another display's frame. On Wayland the compositor decides
+    /// which output a fullscreen window lands on, so the frame follows the
+    /// window once that is known. `windows` and `last_area` as for `new`.
+    #[cfg(target_os = "linux")]
+    pub fn set_frame(&mut self, frame: Frame, windows: Vec<SnapWindow>, last_area: Option<RectPx>, cx: &mut Context<Self>) {
+        self.image = sukurin_ui::render_image(&frame.bitmap);
+        self.frame = frame;
+        self.place(windows, last_area);
+        if !matches!(self.mode, Mode::Delay) {
+            self.set_mode(self.mode, cx);
+        }
+    }
+
+    /// Clips snap targets and the last area to this frame, in frame pixels.
+    fn place(&mut self, windows: Vec<SnapWindow>, last_area: Option<RectPx>) {
+        let origin = self.frame.display.rect;
+        let bounds = self.frame.bitmap.bounds();
+        let to_frame = |r: RectPx| r.translate(-origin.x, -origin.y).intersect(&bounds);
+        self.windows = windows
+            .into_iter()
+            .filter_map(|w| Some(SnapWindow { rect: to_frame(w.rect)?, title: w.title }))
+            .collect();
+        self.last_area = last_area.and_then(to_frame);
     }
 
     pub fn focus_handle(&self) -> &FocusHandle {

@@ -7441,10 +7441,12 @@ dependencies = [
  "sukurin-ui",
  "tray-icon",
  "url",
+ "uuid",
  "windows 0.62.2",
  "winresource",
  "xcap",
  "xcb",
+ "zbus",
 ]
 
 [[package]]

@@ -33,7 +33,7 @@ pub struct Capturer {
     /// On Wayland the layout GNOME reports, in portal screenshot pixels; the
     /// RandR rectangles behind `monitors` are Xwayland's integer-scaled view.
     #[cfg(target_os = "linux")]
-    wayland: Vec<Display>,
+    wayland: Vec<display_config::Monitor>,
 }
 
 impl Capturer {
@@ -87,15 +87,26 @@ impl Capturer {
         if !wayland() {
             return;
         }
-        match smol::block_on(display_config::displays()) {
-            Ok(displays) => {
-                for d in &displays {
-                    log::debug!("GNOME display {}: {:?} at scale {}", d.name, d.rect, d.scale);
+        match smol::block_on(display_config::monitors()) {
+            Ok(monitors) => {
+                for m in &monitors {
+                    log::debug!("GNOME display {}: {:?} at scale {}, {}x{} logical at {}", m.display.name, m.display.rect, m.display.scale, m.logical.0, m.logical.1, m.scale);
                 }
-                self.wayland = displays;
+                self.wayland = monitors;
             }
             Err(e) => log::warn!("monitor layout from GNOME unavailable, using RandR: {e:#}"),
         }
+    }
+
+    /// The GNOME monitors a fullscreen window of this logical size and scale
+    /// can be on. Several when monitors are alike.
+    #[cfg(target_os = "linux")]
+    pub fn wayland_monitors_like(&self, logical: (u32, u32), scale: f32) -> Vec<Display> {
+        self.wayland
+            .iter()
+            .filter(|m| m.logical == logical && (m.scale - scale).abs() < 0.01)
+            .map(|m| m.display.clone())
+            .collect()
     }
 
     pub fn displays(&self) -> Vec<Display> {
@@ -103,7 +114,7 @@ impl Capturer {
         return self.outputs.iter().map(|o| o.display.clone()).collect();
         #[cfg(target_os = "linux")]
         if !self.wayland.is_empty() {
-            return self.wayland.clone();
+            return self.wayland.iter().map(|m| m.display.clone()).collect();
         }
         #[cfg(not(windows))]
         return self.monitors.iter().map(|(d, _)| d.clone()).collect();

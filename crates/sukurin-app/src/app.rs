@@ -283,6 +283,8 @@ fn portal_capture(mode: Mode, cursor: sukurin_core::PointPx, started: Instant, c
                 cx.update(|cx| {
                     let s = cx.global_mut::<Sukurin>();
                     s.portal_pending = false;
+                    // The pointer is unknown on Wayland, so this is the display at
+                    // the origin; the overlay moves to GNOME's choice once mapped.
                     s.capturer.refresh_layout();
                     let display = s.capturer.display_at(cursor).unwrap_or(display);
                     let taken_at = std::time::SystemTime::now();
@@ -290,11 +292,14 @@ fn portal_capture(mode: Mode, cursor: sukurin_core::PointPx, started: Instant, c
                     if let Ok(dir) = std::env::var("SUKURIN_DUMP_FRAME") {
                         dump_png(&format!("{dir}/desktop.png"), &desktop);
                     }
-                    let opened = capture::display_part(desktop, &display)
+                    let opened = capture::display_part(desktop.clone(), &display)
                         .and_then(|bitmap| open_overlay(Frame { display: display.clone(), bitmap, taken_at }, cursor, mode, started, cx));
-                    if let Err(e) = opened {
-                        log::error!("capture failed: {e:#}");
-                        show_toast(Content::Note { title: "Capture failed".into(), lines: vec![format!("{e:#}")] }, &display, cx);
+                    match opened {
+                        Ok(()) => follow_placement(desktop, taken_at, cx),
+                        Err(e) => {
+                            log::error!("capture failed: {e:#}");
+                            show_toast(Content::Note { title: "Capture failed".into(), lines: vec![format!("{e:#}")] }, &display, cx);
+                        }
                     }
                 });
                 return;
@@ -361,9 +366,15 @@ fn open_overlay(frame: Frame, cursor: sukurin_core::PointPx, mode: Mode, t: Inst
     let windows = capture::snap_windows();
     let (bounds, display_id) = gpui_display(&frame.display, cx);
     // Wayland ignores a window's requested position, so on Linux the overlay
-    // asks to be fullscreen to sit exactly over the frozen frame.
+    // asks to be fullscreen to sit exactly over the frozen frame. Under GNOME
+    // it opens small first: `follow_placement` learns the output from that
+    // window, then makes it fullscreen.
     #[cfg(target_os = "linux")]
-    let window_bounds = WindowBounds::Fullscreen(bounds);
+    let window_bounds = if capture::wayland() {
+        WindowBounds::Windowed(Bounds::new(bounds.origin, size(px(64.), px(64.))))
+    } else {
+        WindowBounds::Fullscreen(bounds)
+    };
     #[cfg(not(target_os = "linux"))]
     let window_bounds = WindowBounds::Windowed(bounds);
     let opts = WindowOptions {
@@ -385,7 +396,7 @@ fn open_overlay(frame: Frame, cursor: sukurin_core::PointPx, mode: Mode, t: Inst
         window.focus(&focus, cx);
         window.activate_window();
         #[cfg(target_os = "linux")]
-        if !window.is_fullscreen() {
+        if !window.is_fullscreen() && !capture::wayland() {
             window.toggle_fullscreen();
         }
         window.on_next_frame(move |_, cx| {
@@ -397,6 +408,79 @@ fn open_overlay(frame: Frame, cursor: sukurin_core::PointPx, mode: Mode, t: Inst
     cx.subscribe(&overlay, |overlay, ev: &OverlayEvent, cx| on_overlay(overlay, ev, cx)).detach();
     cx.global_mut::<Sukurin>().overlay = Some((handle, overlay));
     Ok(())
+}
+
+/// GNOME puts a new window on the monitor under the pointer, whichever output
+/// it was asked for. A small window enters that one output alone (a window
+/// along a monitor edge also enters the neighbour its shadow reaches, and GPUI
+/// then keeps the wrong one), so the overlay opens small, learns its output
+/// once GPUI has seen the surface enter it, and only then goes fullscreen; the
+/// fullscreen size and scale confirm the monitor. The overlay then shows that
+/// monitor's part of the desktop shot. GPUI reads the output on a bounds
+/// change, hence the nudge.
+#[cfg(target_os = "linux")]
+fn follow_placement(desktop: Bitmap, taken_at: std::time::SystemTime, cx: &mut App) {
+    let Some((handle, overlay)) = cx.global::<Sukurin>().overlay.clone() else { return };
+    cx.spawn(async move |cx| {
+        let mut entered_output = None;
+        for tick in 0..200 {
+            cx.background_executor().timer(Duration::from_millis(16)).await;
+            let Ok(placed) = handle.update(cx, |_, window, cx| {
+                window.bounds_changed(cx);
+                let output = window.display(cx).and_then(|d| d.uuid().ok());
+                if !window.is_fullscreen() {
+                    // Two seconds covers a cold first frame; past that, fullscreen on a guess.
+                    if output.is_some() || tick >= 125 {
+                        entered_output = output;
+                        window.toggle_fullscreen();
+                    }
+                    return None;
+                }
+                let viewport = window.viewport_size();
+                let logical = (viewport.width.as_f32().round() as u32, viewport.height.as_f32().round() as u32);
+                Some((logical, window.scale_factor(), entered_output.or(output)))
+            }) else {
+                return;
+            };
+            let Some((logical, scale, output)) = placed else { continue };
+            let _ = cx.update(|cx| {
+                let shown = overlay.read(cx).frame().display.clone();
+                let alike = cx.global::<Sukurin>().capturer.wayland_monitors_like(logical, scale);
+                let entered = |d: &Display| output.is_some_and(|o| wayland_output_uuid(&d.name) == o);
+                let on = alike.iter().find(|d| entered(d)).or(alike.first()).cloned();
+                match on {
+                    Some(display) if display.rect != shown.rect => {
+                        log::info!("overlay landed on {} {:?}, showing it instead of {}", display.name, display.rect, shown.name);
+                        match capture::display_part(desktop, &display) {
+                            Ok(bitmap) => {
+                                let last_area = cx.global::<Sukurin>().last_area;
+                                let windows = capture::snap_windows();
+                                overlay.update(cx, |o, cx| o.set_frame(Frame { display, bitmap, taken_at }, windows, last_area, cx));
+                            }
+                            Err(e) => log::error!("could not move the overlay's frame: {e:#}"),
+                        }
+                    }
+                    Some(_) => log::debug!("overlay landed on {} as shown", shown.name),
+                    None => log::warn!(
+                        "overlay is {}x{} at scale {scale}, which matches no monitor GNOME lists; showing {}",
+                        logical.0,
+                        logical.1,
+                        shown.name
+                    ),
+                }
+            });
+            return;
+        }
+        log::warn!("the overlay never went fullscreen");
+    })
+    .detach();
+}
+
+/// GPUI names a Wayland display by the UUID it derives from the output's name,
+/// which is the connector GNOME's layout names the monitor by.
+#[cfg(target_os = "linux")]
+fn wayland_output_uuid(name: &str) -> uuid::Uuid {
+    uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_DNS, name.as_bytes())
 }
 
 #[cfg(target_os = "linux")]
