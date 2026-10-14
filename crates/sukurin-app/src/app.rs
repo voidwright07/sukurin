@@ -283,6 +283,10 @@ fn portal_capture(mode: Mode, cursor: sukurin_core::PointPx, started: Instant, c
                 cx.update(|cx| {
                     cx.global_mut::<Sukurin>().portal_pending = false;
                     let taken_at = std::time::SystemTime::now();
+                    log::debug!("portal screenshot {}x{} px; cropping to {} {:?}", desktop.width(), desktop.height(), display.name, display.rect);
+                    if let Ok(dir) = std::env::var("SUKURIN_DUMP_FRAME") {
+                        dump_png(&format!("{dir}/desktop.png"), &desktop);
+                    }
                     let opened = capture::display_part(desktop, &display)
                         .and_then(|bitmap| open_overlay(Frame { display: display.clone(), bitmap, taken_at }, cursor, mode, started, cx));
                     if let Err(e) = opened {
@@ -392,6 +396,14 @@ fn open_overlay(frame: Frame, cursor: sukurin_core::PointPx, mode: Mode, t: Inst
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
+fn dump_png(path: &str, b: &Bitmap) {
+    match image::save_buffer(path, &b.to_rgba(), b.width(), b.height(), image::ExtendedColorType::Rgba8) {
+        Ok(()) => log::debug!("dumped {path}"),
+        Err(e) => log::warn!("could not dump {path}: {e}"),
+    }
+}
+
 fn ms(d: Duration) -> f64 {
     d.as_secs_f64() * 1000.
 }
@@ -434,6 +446,7 @@ fn on_overlay(overlay: Entity<Overlay>, ev: &OverlayEvent, cx: &mut App) {
         }
         OverlayEvent::Capture { rect, after } => {
             let frame = overlay.read(cx).frame().clone();
+            log::debug!("selection {rect:?} on the {}x{} frame of {} {:?}", frame.bitmap.width(), frame.bitmap.height(), frame.display.name, frame.display.rect);
             close_overlay(cx);
             let Some(bitmap) = frame.bitmap.crop(*rect) else { return };
             let origin = frame.display.rect;
